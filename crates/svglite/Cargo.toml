@@ -1,0 +1,10 @@
+[package]
+name = "tnoodle-svglite"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Lightweight SVG builder for tnoodle puzzle state rendering"
+
+[lints]
+workspace = true

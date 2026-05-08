@@ -1,0 +1,28 @@
+[workspace]
+members = [
+    "crates/svglite",
+    "crates/min2phase",
+    "crates/threephase",
+    "crates/sq12phase",
+    "crates/solvers",
+    "crates/scrambles",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0"
+repository = "https://github.com/thewca/tnoodle-lib"
+description = "Rust port of the official WCA scramble library (tnoodle-lib)"
+
+[workspace.dependencies]
+rand = "0.9"
+rand_chacha = "0.9"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
