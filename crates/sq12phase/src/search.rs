@@ -26,6 +26,10 @@ const MAX_MOVES: usize = 100;
 /// Flag bit: return the inverse (scramble) solution.
 pub const INVERSE_SOLUTION: i32 = 0x2;
 
+/// Half-move units per WCA-metric move in the optimal search, where a layer
+/// turn and a twist each count as one move.
+const PRUN_INC: i32 = 2;
+
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
@@ -111,6 +115,145 @@ impl Search {
         }
 
         self.sol_string.take()
+    }
+
+    /// Find an optimal solution of at most `maxl` moves in the WCA turn
+    /// metric (`(x,y)` and `/` each count as one move), or `None` if there is
+    /// none. Port of Java's `Search.solutionOpt`.
+    #[must_use]
+    pub fn solution_opt(&mut self, cube: &FullCube, maxl: i32) -> Option<String> {
+        self.solution_opt_with_verbose(cube, maxl, 0)
+    }
+
+    /// [`Search::solution_opt`] with verbosity/mode flags.
+    #[must_use]
+    pub fn solution_opt_with_verbose(&mut self, cube: &FullCube, maxl: i32, verbose: i32) -> Option<String> {
+        let shape_tables = &*SHAPE_TABLES;
+        self.verbose = verbose;
+        self.sol_string = None;
+        let shape = cube.get_shape_idx();
+        let prun = shape_tables.shape_prun_opt[shape as usize];
+        let mut length1 = prun * PRUN_INC;
+        while length1 <= maxl * PRUN_INC {
+            self.length1 = length1;
+            if self.phase1_opt(cube, shape, prun, length1, 0, -1, 0) {
+                break;
+            }
+            length1 += PRUN_INC;
+        }
+        self.sol_string.take()
+    }
+
+    /// Counts the nibbles of `val` that are 0xf.
+    fn count0xf(mut val: i32) -> i32 {
+        val &= val >> 1;
+        val &= val >> 2;
+        (val & 0x1111_1111).count_ones() as i32
+    }
+
+    /// Optimal IDA* in the WCA metric. `maxl` counts half moves
+    /// (`PRUN_INC` per WCA move); `last_turns` packs recent layer turns to
+    /// prune equivalent sequences. Port of Java's `phase1Opt`.
+    #[allow(clippy::too_many_arguments)]
+    fn phase1_opt(
+        &mut self,
+        cube: &FullCube,
+        shape: i32,
+        prun_value: i32,
+        maxl: i32,
+        depth: i32,
+        lm: i32,
+        last_turns: i32,
+    ) -> bool {
+        let _ = prun_value;
+        let shape_tables = &*SHAPE_TABLES;
+        let i = Self::count0xf((last_turns ^ !0x00_0000) & 0xff_00ff)
+            - Self::count0xf((last_turns ^ !0x66_6666) & 0xff_00ff);
+        if i < 0 || i == 0 && (last_turns >> 20 & 0xf) >= 6 {
+            return false;
+        }
+
+        if maxl / PRUN_INC == 0 {
+            self.movelen1 = depth;
+            if self.is_solved_in_phase1(cube) {
+                return true;
+            }
+            if maxl == 0 {
+                return false;
+            }
+        }
+
+        // Try twist first
+        if lm != 0 {
+            let shapex = shape_tables.twist_move[shape as usize];
+            let prun = shape_tables.shape_prun_opt[shapex as usize];
+            if prun < maxl / PRUN_INC {
+                self.moves[depth as usize] = 0;
+                let next_maxl = (maxl / PRUN_INC - 1) * PRUN_INC;
+                if self.phase1_opt(cube, shapex, prun, next_maxl, depth + 1, 0, last_turns << 8) {
+                    return true;
+                }
+            }
+        }
+
+        // Try top layer
+        if lm <= 0 {
+            let mut m = 0;
+            let mut shapex = shape;
+            loop {
+                let entry = shape_tables.top_move[shapex as usize];
+                m += entry & 0xf;
+                shapex = entry >> 4;
+                if m >= 12 {
+                    break;
+                }
+                let prun = shape_tables.shape_prun_opt[shapex as usize];
+                if prun * PRUN_INC > maxl + PRUN_INC - 1 {
+                    break;
+                } else if prun * PRUN_INC < maxl + PRUN_INC - 1 {
+                    self.moves[depth as usize] = m;
+                    if self.phase1_opt(cube, shapex, prun, maxl - 1, depth + 1, 1, last_turns | m << 4) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Try bottom layer
+        if lm <= 1 {
+            let mut m = 0;
+            let mut shapex = shape;
+            loop {
+                let entry = shape_tables.bottom_move[shapex as usize];
+                m += entry & 0xf;
+                shapex = entry >> 4;
+                if m >= 12 {
+                    break;
+                }
+                let prun = shape_tables.shape_prun_opt[shapex as usize];
+                if prun * PRUN_INC > maxl + PRUN_INC - 1 {
+                    break;
+                } else if prun * PRUN_INC < maxl + PRUN_INC - 1 {
+                    self.moves[depth as usize] = -m;
+                    if self.phase1_opt(cube, shapex, prun, maxl - 1, depth + 1, 2, last_turns | m) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    fn is_solved_in_phase1(&mut self, cube: &FullCube) -> bool {
+        self.d.copy_from(cube);
+        for i in 0..self.movelen1 {
+            self.d.do_move(self.moves[i as usize]);
+        }
+        let solved = self.d.is_solved();
+        if solved {
+            self.sol_string = Some(self.move2string(self.movelen1));
+        }
+        solved
     }
 
     // -----------------------------------------------------------------------
@@ -461,6 +604,74 @@ mod tests {
     use super::*;
     use rand::SeedableRng;
     use rand::rngs::StdRng;
+
+    /// Apply a WCA-notation Square-1 algorithm like `(1,0) / (-3,2) /`.
+    /// Returns the cube and its length in the WCA metric.
+    fn apply(cube: &FullCube, alg: &str) -> (FullCube, i32) {
+        let mut c = FullCube::new();
+        c.copy_from(cube);
+        let mut moves = 0;
+        let compact: String = alg.chars().filter(|ch| !ch.is_whitespace()).collect();
+        let mut rest = compact.as_str();
+        while !rest.is_empty() {
+            if let Some(r) = rest.strip_prefix('/') {
+                c.do_move(0);
+                moves += 1;
+                rest = r;
+            } else {
+                let end = rest.find(')').unwrap();
+                let (top, bottom) = rest[1..end].split_once(',').unwrap();
+                let (top, bottom): (i32, i32) = (top.parse().unwrap(), bottom.parse().unwrap());
+                if top.rem_euclid(12) != 0 {
+                    c.do_move(top.rem_euclid(12));
+                }
+                if bottom.rem_euclid(12) != 0 {
+                    c.do_move(-bottom.rem_euclid(12));
+                }
+                moves += 1;
+                rest = &rest[end + 1..];
+            }
+        }
+        (c, moves)
+    }
+
+    #[test]
+    fn optimal_solution_matches_java() {
+        // Port of SquareOnePuzzleTest.testMergingMode: (1,0) (2,0) (0,-1) / /
+        // merges to (3,-1), whose optimal solution is (-3,1).
+        let (c, _) = apply(&FullCube::new(), "(3,-1)");
+        let mut search = Search::new();
+        assert_eq!(search.solution_opt(&c, 1).unwrap().trim(), "(-3,1)");
+        assert_eq!(search.solution_opt(&c, 2).unwrap().trim(), "(-3,1)");
+        assert_eq!(search.solution_opt(&FullCube::new(), 0).as_deref(), Some(""));
+    }
+
+    #[test]
+    fn optimal_solutions_are_valid_and_short() {
+        let mut rng = StdRng::seed_from_u64(7);
+        let mut search = Search::new();
+        for _ in 0..20 {
+            let scramble = search
+                .solution_with_verbose(&FullCube::random_cube(&mut rng), INVERSE_SOLUTION)
+                .unwrap();
+            // Take the first few WCA moves of a valid scramble.
+            let prefix: String = scramble.split('/').take(3).collect::<Vec<_>>().join("/");
+            let (state, length) = apply(&FullCube::new(), &prefix);
+            let solution = search.solution_opt(&state, length).expect("within its own length");
+            let (solved, solution_length) = apply(&state, &solution);
+            assert!(solved.is_solved(), "{prefix} + {solution}");
+            assert!(solution_length <= length, "{solution} longer than {prefix}");
+        }
+    }
+
+    #[test]
+    fn random_states_are_rarely_within_ten_moves() {
+        let mut rng = StdRng::seed_from_u64(11);
+        let mut search = Search::new();
+        for _ in 0..20 {
+            assert!(search.solution_opt(&FullCube::random_cube(&mut rng), 10).is_none());
+        }
+    }
 
     #[test]
     fn solved_cube_short_solution() {

@@ -10,37 +10,22 @@ const WIDTH: usize = 10;
 /// Generate a WCA-standard Megaminx scramble.
 ///
 /// Format: 7 lines of 10 R/D moves each, followed by U or U'.
-/// R moves alternate between R++ and R--, D moves alternate between D++ and D--.
+/// Each R/D turn is randomly `++` or `--`; the U turn matches the last D turn.
 pub fn generate_scramble(rng: &mut (impl Rng + ?Sized)) -> String {
     let mut lines = Vec::with_capacity(HEIGHT);
 
     for _ in 0..HEIGHT {
         let mut line_moves = Vec::with_capacity(WIDTH + 1);
+        let mut clockwise = true;
 
         for j in 0..WIDTH {
-            if j % 2 == 0 {
-                // R move
-                if rng.random_range(0..2) == 0 {
-                    line_moves.push("R++");
-                } else {
-                    line_moves.push("R--");
-                }
-            } else {
-                // D move
-                if rng.random_range(0..2) == 0 {
-                    line_moves.push("D++");
-                } else {
-                    line_moves.push("D--");
-                }
-            }
+            let side = if j % 2 == 0 { "R" } else { "D" };
+            clockwise = rng.random_range(0..2) == 0;
+            line_moves.push(format!("{side}{}", if clockwise { "++" } else { "--" }));
         }
 
-        // Final U move
-        if rng.random_range(0..2) == 0 {
-            line_moves.push("U");
-        } else {
-            line_moves.push("U'");
-        }
+        // Pochmann style: the final U turn follows the direction of the last D turn.
+        line_moves.push(if clockwise { "U" } else { "U'" }.to_string());
 
         lines.push(line_moves.join(" "));
     }
@@ -61,6 +46,9 @@ mod tests {
         for line in scramble.lines() {
             let move_count = line.split_whitespace().count();
             assert_eq!(move_count, 11); // 10 R/D + 1 U
+            let moves: Vec<&str> = line.split_whitespace().collect();
+            let expected_u = if moves[9] == "D++" { "U" } else { "U'" };
+            assert_eq!(moves[10], expected_u, "{line}");
         }
     }
 }
