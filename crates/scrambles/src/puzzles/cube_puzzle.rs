@@ -183,6 +183,18 @@ impl CubeState {
         self.sticker(B, s, s) == B && self.sticker(L, s, 0) == L && self.sticker(D, s, 0) == D
     }
 
+    /// Sticker colors as face letters, faces in URFDLB order, each face in
+    /// reading order. Port of Java's `CubeState.toFaceCube` (which only
+    /// supports 3x3x3), generalized to any size.
+    pub fn to_face_cube(&self) -> String {
+        let n = self.size;
+        [U, R, F, D, L, B]
+            .iter()
+            .flat_map(|&face| (0..n).flat_map(move |r| (0..n).map(move |c| (face, r, c))))
+            .map(|(face, r, c)| FACE_NAMES[self.sticker(face, r, c) as usize])
+            .collect()
+    }
+
     fn successor(&self, move_idx: usize) -> Self {
         self.permuted(&tables(self.size).moves[move_idx].1)
     }
