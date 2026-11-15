@@ -13,14 +13,13 @@ pub fn random_cube(rng: &mut impl Rng) -> CubieCube {
     cc.set_c_perm(rng.random_range(0..40320));
     // Random corner orientation
     cc.set_twist(rng.random_range(0..2187));
-    // Random edge permutation (must match corner parity)
-    let mut eperm = rng.random_range(0..40320);
-    // Fix parity: edge perm parity must equal corner perm parity
+    // Random permutation of all 12 edges (12! = 479001600)
+    let mut eperm = rng.random_range(0..479_001_600);
+    // Edge parity must equal corner parity. Flipping the lowest Lehmer digit
+    // swaps the last two edges, which pairs each permutation with one of the
+    // opposite parity, so the result stays uniform.
     if util::get_n_parity(eperm, 12) != util::get_n_parity(cc.get_c_perm(), 8) {
-        // Swap two edges to fix parity
-        // Simple approach: try another random eperm or swap
-        // Actually, the Java code uses a different approach - let me match it exactly
-        if eperm % 2 == 0 { eperm += 1; } else { eperm -= 1; }
+        eperm ^= 1;
     }
     util::set_n_perm(&mut cc.ea, eperm, 12, true);
     // Random edge flip
@@ -143,6 +142,22 @@ mod tests {
             let cc = random_cube(&mut rng);
             assert_eq!(cc.verify(), 0, "random cube failed verification");
         }
+    }
+
+    #[test]
+    fn random_cube_moves_every_edge() {
+        // Regression: the edge permutation used to be drawn from 8! values,
+        // which left the first edges in their solved positions every time.
+        let mut rng = rand::rng();
+        let mut seen = [[false; 12]; 12];
+        for _ in 0..2000 {
+            let cc = random_cube(&mut rng);
+            assert_eq!(cc.verify(), 0);
+            for (position, &e) in cc.ea.iter().enumerate() {
+                seen[usize::from(e >> 1)][position] = true;
+            }
+        }
+        assert!(seen.iter().flatten().all(|&s| s), "some edge never reached some position");
     }
 
     #[test]
