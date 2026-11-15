@@ -12,7 +12,6 @@
 //! tnoodle_min2phase crate (the 3x3 two-phase solver).
 
 use std::collections::BinaryHeap;
-use std::cmp::Reverse;
 
 use rand::Rng;
 
@@ -55,8 +54,9 @@ pub struct Search {
     search333: Search333,
 
     p1_sols_cnt: usize,
-    // Phase-1 solutions stored in a max-heap (by Reverse value for min-extraction).
-    p1_sols: BinaryHeap<Reverse<FullCubeEntry>>,
+    // Best phase-1 solutions, as a max-heap by value so the worst one is on
+    // top and gets replaced (Java's PriorityQueue with ValueComparator).
+    p1_sols: BinaryHeap<FullCubeEntry>,
 
     arr2: Vec<Option<FullCube>>,
     arr2_idx: usize,
@@ -88,7 +88,7 @@ impl PartialOrd for FullCubeEntry {
 impl Ord for FullCubeEntry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // Java ValueComparator: c2.value - c1.value  (i.e. higher value = higher priority)
-        // We use Reverse<FullCubeEntry> in the BinaryHeap, so here bigger = greater.
+        // Bigger value = greater, so the BinaryHeap top is the worst solution.
         self.cube.value.cmp(&other.cube.value)
     }
 }
@@ -257,7 +257,7 @@ impl Search {
         let mut p1_sols_arr: Vec<FullCube> = self
             .p1_sols
             .drain()
-            .map(|Reverse(e)| e.cube)
+            .map(|e| e.cube)
             .collect();
         p1_sols_arr.sort_by_key(|c| c.value);
 
@@ -408,7 +408,8 @@ impl Search {
 
         // Get the 3x3 facelet and solve with min2phase
         let facelet_333 = sol_cube.to_333_facelet();
-        let sol_333 = self.search333.solution(&facelet_333, 21, 1000000, 500, 0);
+
+        let sol_333 = self.search333.solution(&relabel_by_centers(&facelet_333), 21, 1000000, 500, 0);
 
         match sol_333 {
             SearchResult::Solution(sol_str) => {
@@ -531,13 +532,13 @@ impl Search {
         };
 
         if self.p1_sols.len() < PHASE2_ATTEMPTS {
-            self.p1_sols.push(Reverse(entry));
+            self.p1_sols.push(entry);
         } else {
             // Check if the worst in the heap is worse than the new one
-            if let Some(&Reverse(ref worst)) = self.p1_sols.peek() {
+            if let Some(worst) = self.p1_sols.peek() {
                 if worst.cube.value > self.c1.value {
                     self.p1_sols.pop();
-                    self.p1_sols.push(Reverse(entry));
+                    self.p1_sols.push(entry);
                 }
             }
         }
@@ -701,6 +702,20 @@ impl Search {
 // ─── helpers ─────────────────────────────────────────────────────────
 
 /// Parse a min2phase solution string (e.g. "U R2 F' ...") into move indices.
+/// The reduced cube is usually rotated, so its face colors don't match the
+/// face letters. Java's min2phase `verify` reads colors relative to each
+/// face's center sticker; the Rust min2phase does not, so relabel here.
+fn relabel_by_centers(facelets: &str) -> String {
+    let f = facelets.as_bytes();
+    let centers = [f[4], f[13], f[22], f[31], f[40], f[49]];
+    f.iter()
+        .map(|c| {
+            let face = centers.iter().position(|x| x == c).expect("every color has a center");
+            b"URFDLB"[face] as char
+        })
+        .collect()
+}
+
 fn parse_moves_333(sol: &str) -> Vec<usize> {
     let mut result = Vec::new();
     for token in sol.split_whitespace() {
@@ -755,5 +770,78 @@ mod tests {
     fn test_parse_moves_333_empty() {
         let moves = parse_moves_333("");
         assert!(moves.is_empty());
+    }
+
+    #[test]
+    fn relabel_maps_center_colors_to_faces() {
+        // A y rotation of a solved cube: U/D centers stay, side colors shift.
+        let rotated = "UUUUUUUUUBBBBBBBBBRRRRRRRRRDDDDDDDDDFFFFFFFFFLLLLLLLLL";
+        assert_eq!(
+            relabel_by_centers(rotated),
+            "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
+        );
+    }
+
+    fn facelets(c: &mut FullCube) -> [u8; 96] {
+        let mut f = [0u8; 96];
+        c.to_facelet(&mut f);
+        f
+    }
+
+    fn parse_4x4(alg: &str) -> Vec<usize> {
+        alg.split_whitespace()
+            .map(|m| MOVE2STR.iter().position(|s| s.trim() == m).unwrap_or_else(|| panic!("bad move {m}")))
+            .collect()
+    }
+
+    /// All 24 orientations of `f`, generated from x = Rw Lw', y = Uw Dw', z = Fw Bw'.
+    fn orientations(f: [u8; 96]) -> Vec<[u8; 96]> {
+        let rotations = [[RWX1, LWX3], [UWX1, DWX3], [FWX1, BWX3]];
+        let mut seen = vec![f];
+        let mut i = 0;
+        while i < seen.len() {
+            for rot in rotations {
+                let mut c = FullCube::from_facelets(&seen[i]);
+                for m in rot {
+                    c.do_move(m as usize);
+                }
+                let next = facelets(&mut c);
+                if !seen.contains(&next) {
+                    seen.push(next);
+                }
+            }
+            i += 1;
+        }
+        assert_eq!(seen.len(), 24);
+        seen
+    }
+
+    #[test]
+    fn solutions_reproduce_the_input_state() {
+        // Regression: the reduced 3x3 is usually rotated and used to reach
+        // min2phase with wrong colors, giving "Error -6" or wrong scrambles.
+        let mut rng = rand::rng();
+        let mut search = Search::new();
+        for _ in 0..10 {
+            let moves: Vec<usize> = (0..40).map(|_| rand::Rng::random_range(&mut rng, 0..36)).collect();
+            let target = facelets(&mut FullCube::from_moves(&moves));
+            let facelet: String = target.iter().map(|&c| "URFDLB".as_bytes()[c as usize] as char).collect();
+            let scramble = search.solution_from_facelet(&facelet);
+            assert!(!scramble.starts_with("Error"), "{scramble}");
+            let produced = facelets(&mut FullCube::from_moves(&parse_4x4(&scramble)));
+            assert!(orientations(produced).contains(&target), "{scramble} does not reproduce the state");
+        }
+    }
+
+    #[test]
+    fn random_state_never_errors() {
+        let mut rng = rand::rng();
+        let mut search = Search::new();
+        for _ in 0..10 {
+            let scramble = search.random_state(&mut rng);
+            assert!(!scramble.starts_with("Error"), "{scramble}");
+            let len = parse_4x4(&scramble).len();
+            assert!((30..=55).contains(&len), "{len} moves: {scramble}");
+        }
     }
 }

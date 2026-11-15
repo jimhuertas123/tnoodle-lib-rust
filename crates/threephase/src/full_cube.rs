@@ -403,6 +403,35 @@ mod tests {
     }
 
     #[test]
+    fn every_move_has_order_four() {
+        let solved = solved_facelets();
+        for m in 0..36 {
+            let mut fc = FullCube::from_moves(&[m, m, m, m]);
+            let mut out = [0u8; 96];
+            fc.to_facelet(&mut out);
+            assert_eq!(out, solved, "move {}", MOVE2STR[m]);
+            let mut once = FullCube::from_moves(&[m]);
+            once.to_facelet(&mut out);
+            assert_ne!(out, solved, "move {} does nothing", MOVE2STR[m]);
+        }
+    }
+
+    #[test]
+    fn scrambled_facelet_roundtrip() {
+        let mut rng = rand::rng();
+        for _ in 0..100 {
+            let moves: Vec<usize> = (0..40).map(|_| rng.random_range(0..36)).collect();
+            let mut fc = FullCube::from_moves(&moves);
+            let mut f = [0u8; 96];
+            fc.to_facelet(&mut f);
+            let mut back = FullCube::from_facelets(&f);
+            let mut g = [0u8; 96];
+            back.to_facelet(&mut g);
+            assert_eq!(f, g);
+        }
+    }
+
+    #[test]
     fn test_new_is_solved() {
         let mut fc = FullCube::new();
         // Edge should be identity
