@@ -409,7 +409,7 @@ impl Search {
         // Get the 3x3 facelet and solve with min2phase
         let facelet_333 = sol_cube.to_333_facelet();
 
-        let sol_333 = self.search333.solution(&relabel_by_centers(&facelet_333), 21, 1000000, 500, 0);
+        let sol_333 = self.search333.solution(&facelet_333, 21, 1000000, 500, 0);
 
         match sol_333 {
             SearchResult::Solution(sol_str) => {
@@ -702,20 +702,6 @@ impl Search {
 // ─── helpers ─────────────────────────────────────────────────────────
 
 /// Parse a min2phase solution string (e.g. "U R2 F' ...") into move indices.
-/// The reduced cube is usually rotated, so its face colors don't match the
-/// face letters. Java's min2phase `verify` reads colors relative to each
-/// face's center sticker; the Rust min2phase does not, so relabel here.
-fn relabel_by_centers(facelets: &str) -> String {
-    let f = facelets.as_bytes();
-    let centers = [f[4], f[13], f[22], f[31], f[40], f[49]];
-    f.iter()
-        .map(|c| {
-            let face = centers.iter().position(|x| x == c).expect("every color has a center");
-            b"URFDLB"[face] as char
-        })
-        .collect()
-}
-
 fn parse_moves_333(sol: &str) -> Vec<usize> {
     let mut result = Vec::new();
     for token in sol.split_whitespace() {
@@ -770,16 +756,6 @@ mod tests {
     fn test_parse_moves_333_empty() {
         let moves = parse_moves_333("");
         assert!(moves.is_empty());
-    }
-
-    #[test]
-    fn relabel_maps_center_colors_to_faces() {
-        // A y rotation of a solved cube: U/D centers stay, side colors shift.
-        let rotated = "UUUUUUUUUBBBBBBBBBRRRRRRRRRDDDDDDDDDFFFFFFFFFLLLLLLLLL";
-        assert_eq!(
-            relabel_by_centers(rotated),
-            "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
-        );
     }
 
     fn facelets(c: &mut FullCube) -> [u8; 96] {
