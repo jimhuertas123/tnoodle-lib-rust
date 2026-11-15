@@ -2,13 +2,10 @@
 
 use rand::Rng;
 
-/// Pin names for the scramble output.
-const PIN_NAMES: [&str; 4] = ["UR", "DR", "DL", "UL"];
-
 /// Generate a WCA-standard Clock scramble.
 ///
-/// Format: pin positions + turns on front, y2, pin positions + turns on back,
-/// then optional pin states.
+/// Format: 9 pin-configuration turns on the front, `y2`, then 5 on the back.
+/// Each turn is `0+`..`6+` or `1-`..`5-`.
 pub fn generate_scramble(rng: &mut (impl Rng + ?Sized)) -> String {
     let mut parts: Vec<String> = Vec::new();
 
@@ -40,13 +37,6 @@ pub fn generate_scramble(rng: &mut (impl Rng + ?Sized)) -> String {
         }
     }
 
-    // Pin states (each corner pin is either up or down)
-    for &pin in &PIN_NAMES {
-        if rng.random_range(0..2) == 1 {
-            parts.push(format!("{pin}"));
-        }
-    }
-
     parts.join(" ")
 }
 
@@ -59,6 +49,8 @@ mod tests {
         let mut rng = rand::rng();
         let scramble = generate_scramble(&mut rng);
         assert!(!scramble.is_empty());
-        assert!(scramble.contains("y2"));
+        let moves: Vec<&str> = scramble.split_whitespace().collect();
+        assert_eq!(moves.len(), 15, "{scramble}");
+        assert_eq!(moves[9], "y2");
     }
 }

@@ -1,17 +1,21 @@
 //! Square-1 scramble generation using the sq12phase solver.
 
 use rand::Rng;
-use tnoodle_sq12phase::{full_cube::FullCube, search::Search};
+use tnoodle_sq12phase::{full_cube::FullCube, search::{INVERSE_SOLUTION, Search}};
 
-/// Generate a WCA-standard Square-1 scramble.
+/// Generate a WCA-standard Square-1 scramble (random state).
+///
+/// Java also rejects states within 10 moves of solved using an optimal
+/// solver (`solutionOpt`), which is not ported; random states that close are
+/// vanishingly rare.
 pub fn generate_scramble(rng: &mut impl Rng) -> String {
-    let cube = FullCube::random_cube(rng);
     let mut search = Search::new();
-    search.solution(&cube)
-        .unwrap_or_else(|| {
-            let cube = FullCube::random_cube(rng);
-            search.solution(&cube).unwrap_or_default()
-        })
+    loop {
+        let cube = FullCube::random_cube(rng);
+        if let Some(scramble) = search.solution_with_verbose(&cube, INVERSE_SOLUTION) {
+            return scramble.trim().to_string();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -22,6 +26,6 @@ mod tests {
     fn generate_sq1_scramble() {
         let mut rng = rand::rng();
         let scramble = generate_scramble(&mut rng);
-        assert!(!scramble.is_empty());
+        assert!(scramble.contains('/'), "{scramble}");
     }
 }
