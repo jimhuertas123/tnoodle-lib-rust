@@ -144,14 +144,10 @@ impl Search {
             return SearchResult::Error(err);
         }
 
-        // Parse facelets to cubie cube
-        let mut f = [0u8; 54];
-        for (i, ch) in facelets.chars().enumerate() {
-            f[i] = match ch {
-                'U' => 0, 'R' => 1, 'F' => 2, 'D' => 3, 'L' => 4, 'B' => 5,
-                _ => return SearchResult::Error(-1),
-            };
-        }
+        // Parse facelets to cubie cube (colors named by their centers)
+        let Ok(f) = crate::tools::parse_facelets(facelets) else {
+            return SearchResult::Error(-1);
+        };
         let mut ca = [0u8; 8];
         let mut ea = [0u8; 12];
         util::to_cubie_cube(&f, &mut ca, &mut ea);
