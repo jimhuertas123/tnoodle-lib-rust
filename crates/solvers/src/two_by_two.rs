@@ -367,38 +367,6 @@ fn search_best(
     found
 }
 
-/// Simplified IDA* that returns the first solution found. Used by `generate_exactly`.
-fn search_first(
-    tables: &Tables,
-    perm: usize,
-    orient: usize,
-    depth: usize,
-    length: usize,
-    last_move: usize,
-    solution: &mut [usize; MAX_LENGTH],
-) -> bool {
-    if length == 0 {
-        return perm == 0 && orient == 0;
-    }
-
-    if tables.prun_perm[perm] > length as i32 || tables.prun_orient[orient] > length as i32 {
-        return false;
-    }
-
-    for mv in 0..N_MOVES {
-        if mv / 3 == last_move / 3 {
-            continue;
-        }
-        let np = tables.move_perm[perm][mv];
-        let no = tables.move_orient[orient][mv];
-        solution[depth] = mv;
-        if search_first(tables, np, no, depth + 1, length - 1, mv, solution) {
-            return true;
-        }
-    }
-    false
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -447,13 +415,17 @@ pub fn solve(state: State, max_depth: usize) -> Option<String> {
 }
 
 /// Generate a scramble (inverse of solution) of exactly `length` moves.
+/// Like Java, every solution of that length is searched and the one that is
+/// cheapest to execute (see `compute_cost`) wins.
 /// Returns `None` if no solution of exactly that length exists.
 pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let tables = &*TABLES;
     let mut solution = [0usize; MAX_LENGTH];
+    let mut best_solution = [0usize; MAX_LENGTH + 1];
     let length = length.min(MAX_LENGTH);
 
-    if search_first(
+    best_solution[length] = usize::MAX;
+    if !search_best(
         tables,
         state.permutation,
         state.orientation,
@@ -461,18 +433,16 @@ pub fn generate_exactly(state: State, length: usize) -> Option<String> {
         length,
         42,
         &mut solution,
+        &mut best_solution,
     ) {
-        if length == 0 {
-            return Some(String::new());
-        }
-        let parts: Vec<&str> = solution[..length]
-            .iter()
-            .rev()
-            .map(|&m| INVERSE_MOVE_TO_STRING[m])
-            .collect();
-        return Some(parts.join(" "));
+        return None;
     }
-    None
+    let parts: Vec<&str> = best_solution[..length]
+        .iter()
+        .rev()
+        .map(|&m| INVERSE_MOVE_TO_STRING[m])
+        .collect();
+    Some(parts.join(" "))
 }
 
 // ---------------------------------------------------------------------------

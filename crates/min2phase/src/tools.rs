@@ -13,14 +13,13 @@ pub fn random_cube(rng: &mut impl Rng) -> CubieCube {
     cc.set_c_perm(rng.random_range(0..40320));
     // Random corner orientation
     cc.set_twist(rng.random_range(0..2187));
-    // Random edge permutation (must match corner parity)
-    let mut eperm = rng.random_range(0..40320);
-    // Fix parity: edge perm parity must equal corner perm parity
+    // Random permutation of all 12 edges (12! = 479001600)
+    let mut eperm = rng.random_range(0..479_001_600);
+    // Edge parity must equal corner parity. Flipping the lowest Lehmer digit
+    // swaps the last two edges, which pairs each permutation with one of the
+    // opposite parity, so the result stays uniform.
     if util::get_n_parity(eperm, 12) != util::get_n_parity(cc.get_c_perm(), 8) {
-        // Swap two edges to fix parity
-        // Simple approach: try another random eperm or swap
-        // Actually, the Java code uses a different approach - let me match it exactly
-        if eperm % 2 == 0 { eperm += 1; } else { eperm -= 1; }
+        eperm ^= 1;
     }
     util::set_n_perm(&mut cc.ea, eperm, 12, true);
     // Random edge flip
@@ -86,34 +85,35 @@ fn parse_move(s: &str) -> Option<usize> {
     Some(face_idx + power)
 }
 
+/// Parse a facelet string into face indices (URFDLB = 0..5), naming each
+/// color by the face whose center shows it. Like Java's `Search.verify`, this
+/// accepts any color letters and any whole-cube orientation. Returns -1 for a
+/// malformed string.
+pub fn parse_facelets(facelets: &str) -> Result<[u8; 54], i32> {
+    let chars: Vec<char> = facelets.chars().collect();
+    if chars.len() != 54 {
+        return Err(-1);
+    }
+    let centers = [4, 13, 22, 31, 40, 49].map(|i| chars[i]);
+    let mut f = [0u8; 54];
+    let mut counts = [0u8; 6];
+    for (i, ch) in chars.iter().enumerate() {
+        let face = centers.iter().position(|c| c == ch).ok_or(-1)?;
+        f[i] = face as u8;
+        counts[face] += 1;
+    }
+    if counts != [9; 6] {
+        return Err(-1);
+    }
+    Ok(f)
+}
+
 /// Verify a facelet string. Returns 0 if valid, negative error code otherwise.
 pub fn verify(facelets: &str) -> i32 {
-    if facelets.len() != 54 {
-        return -1;
-    }
-
-    let mut f = [0u8; 54];
-    for (i, ch) in facelets.chars().enumerate() {
-        f[i] = match ch {
-            'U' => 0,
-            'R' => 1,
-            'F' => 2,
-            'D' => 3,
-            'L' => 4,
-            'B' => 5,
-            _ => return -1,
-        };
-    }
-
-    // Check each color appears exactly 9 times
-    let mut counts = [0i32; 6];
-    for &c in &f {
-        counts[c as usize] += 1;
-    }
-    for &c in &counts {
-        if c != 9 { return -1; }
-    }
-
+    let f = match parse_facelets(facelets) {
+        Ok(f) => f,
+        Err(e) => return e,
+    };
     let mut ca = [0u8; 8];
     let mut ea = [0u8; 12];
     util::to_cubie_cube(&f, &mut ca, &mut ea);
@@ -143,6 +143,34 @@ mod tests {
             let cc = random_cube(&mut rng);
             assert_eq!(cc.verify(), 0, "random cube failed verification");
         }
+    }
+
+    #[test]
+    fn random_cube_moves_every_edge() {
+        // Regression: the edge permutation used to be drawn from 8! values,
+        // which left the first edges in their solved positions every time.
+        let mut rng = rand::rng();
+        let mut seen = [[false; 12]; 12];
+        for _ in 0..2000 {
+            let cc = random_cube(&mut rng);
+            assert_eq!(cc.verify(), 0);
+            for (position, &e) in cc.ea.iter().enumerate() {
+                seen[usize::from(e >> 1)][position] = true;
+            }
+        }
+        assert!(seen.iter().flatten().all(|&s| s), "some edge never reached some position");
+    }
+
+    #[test]
+    fn facelets_are_read_relative_to_centers() {
+        // A y rotation of a solved cube is still solved; any letters work.
+        let rotated = "UUUUUUUUUBBBBBBBBBRRRRRRRRRDDDDDDDDDFFFFFFFFFLLLLLLLLL";
+        assert_eq!(verify(rotated), 0);
+        let solved = parse_facelets(&from_scramble("")).unwrap();
+        assert_eq!(parse_facelets(rotated).unwrap(), solved);
+        let letters = from_scramble("R U").replace('U', "w").replace('D', "y");
+        assert_eq!(parse_facelets(&letters).unwrap(), parse_facelets(&from_scramble("R U")).unwrap());
+        assert_eq!(verify("U"), -1);
     }
 
     #[test]

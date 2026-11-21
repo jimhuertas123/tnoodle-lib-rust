@@ -15,7 +15,7 @@ const F: u8 = 2;
 const L: u8 = 3;
 const D: u8 = 4;
 const B: u8 = 5;
-const NUM_FACES: usize = 6;
+pub(crate) const NUM_FACES: usize = 6;
 
 fn opposite_face(f: u8) -> u8 {
     (f + 3) % 6
@@ -56,7 +56,7 @@ fn solved_image(size: usize) -> CubeImage {
 // ---------------------------------------------------------------------------
 
 /// Rotate a 2-D grid 90 degrees clockwise `count` times (count in 1..3).
-fn rotate_face_cw(grid: &mut Vec<Vec<u8>>, count: usize) {
+fn rotate_face_cw<T: Copy>(grid: &mut Vec<Vec<T>>, count: usize) {
     let n = grid.len();
     for _ in 0..count {
         let old = grid.clone();
@@ -73,7 +73,7 @@ fn rotate_face_cw(grid: &mut Vec<Vec<u8>>, count: usize) {
 /// `face`  : the face being turned (R=0..B=5)
 /// `slice` : 0 = outermost layer of that face, 1 = next layer inward, ...
 /// `dir`   : 1 = CW (90), 2 = 180, 3 = CCW (270)
-fn apply_slice(image: &mut CubeImage, size: usize, face: u8, slice: usize, dir: usize) {
+pub(crate) fn apply_slice<T: Copy>(image: &mut [Vec<Vec<T>>], size: usize, face: u8, slice: usize, dir: usize) {
     // Save originals before canonicalization (Java uses originals for face rotation)
     let orig_face = face;
     let orig_slice = slice;
@@ -115,7 +115,7 @@ fn apply_slice(image: &mut CubeImage, size: usize, face: u8, slice: usize, dir: 
 ///   `temp=f1; f1=f2; f2=f3; f3=f4; f4=temp`
 ///
 /// We only implement L, D, B (R/U/F are canonicalized to these).
-fn single_slice_cw(image: &mut CubeImage, size: usize, face: u8, slice: usize) {
+fn single_slice_cw<T: Copy>(image: &mut [Vec<Vec<T>>], size: usize, face: u8, slice: usize) {
     let n = size;
     let s = slice;
 
@@ -299,7 +299,11 @@ pub fn render_cube_svg(size: usize, scramble: &str) -> String {
         }
     }
 
-    // Build SVG
+    render_image(size, &image).to_string()
+}
+
+/// Draw a cube image (`image[face][row][col]` = face index of the sticker color).
+pub(crate) fn render_image(size: usize, image: &[Vec<Vec<u8>>]) -> Svg {
     let cs = size * CUBIE_SIZE;
     let width = (cs + GAP) * 4 + GAP;
     let height = (cs + GAP) * 3 + GAP;
@@ -324,7 +328,13 @@ pub fn render_cube_svg(size: usize, scramble: &str) -> String {
         }
     }
 
-    svg.to_string()
+    svg
+}
+
+/// Size of the SVG drawn by [`render_image`].
+pub(crate) fn preferred_size(size: usize) -> Dimension {
+    let cs = size * CUBIE_SIZE;
+    Dimension::new(((cs + GAP) * 4 + GAP) as i32, ((cs + GAP) * 3 + GAP) as i32)
 }
 
 // ---------------------------------------------------------------------------
