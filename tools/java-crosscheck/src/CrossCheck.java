@@ -58,6 +58,17 @@ public class CrossCheck {
         }
     }
 
+    /** A fresh {@code SHA1PRNG} seeded with the hex-encoded bytes, as tnoodle seeds it. */
+    private static java.security.SecureRandom sha1prng(String hexSeed) throws Exception {
+        byte[] seed = new byte[hexSeed.length() / 2];
+        for (int i = 0; i < seed.length; i++) {
+            seed[i] = (byte) Integer.parseInt(hexSeed.substring(2 * i, 2 * i + 2), 16);
+        }
+        java.security.SecureRandom r = java.security.SecureRandom.getInstance("SHA1PRNG", "SUN");
+        r.setSeed(seed);
+        return r;
+    }
+
     private static String orNone(String s) {
         return s == null ? NONE : s.trim();
     }
@@ -147,6 +158,40 @@ public class CrossCheck {
             while ((line = in.readLine()) != null) {
                 String[] f = line.split("\t", -1);
                 switch (f[0]) {
+                    case "jr-bounded": {
+                        java.security.SecureRandom r = sha1prng(f[1]);
+                        int bound = Integer.parseInt(f[2]);
+                        StringBuilder java = new StringBuilder();
+                        for (int i = 0; i < 1000; i++) {
+                            java.append(i == 0 ? "" : ",").append(r.nextInt(bound));
+                        }
+                        record("javarandom-next-int-bounded", java.toString().equals(f[3]),
+                                "seed " + f[1] + " bound " + bound);
+                        break;
+                    }
+                    case "jr-other": {
+                        java.security.SecureRandom r = sha1prng(f[1]);
+                        StringBuilder java = new StringBuilder();
+                        for (int i = 0; i < 1000; i++) {
+                            java.append(i == 0 ? "" : ",");
+                            switch (f[2]) {
+                                case "int": java.append(r.nextInt()); break;
+                                case "long": java.append(r.nextLong()); break;
+                                case "boolean": java.append(r.nextBoolean()); break;
+                                case "double": java.append(String.format("%016x", Double.doubleToLongBits(r.nextDouble()))); break;
+                                case "bytes": {
+                                    byte[] b = new byte[37];
+                                    r.nextBytes(b);
+                                    for (byte x : b) java.append(String.format("%02x", x));
+                                    break;
+                                }
+                                default: throw new IllegalArgumentException(f[2]);
+                            }
+                        }
+                        record("javarandom-other-methods", java.toString().equals(f[3]),
+                                "seed " + f[1] + " method " + f[2]);
+                        break;
+                    }
                     case "canon":
                     case "canonrot": {
                         int size = Integer.parseInt(f[1]);

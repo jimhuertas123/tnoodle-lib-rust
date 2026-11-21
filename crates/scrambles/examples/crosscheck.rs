@@ -15,6 +15,7 @@ use tnoodle_min2phase::{
     search::{Search as TwoPhase, SearchResult},
     tools,
 };
+use tnoodle_random::JavaRandom;
 use tnoodle_scrambles::puzzles::cube_puzzle::{CubePuzzle, CubeState};
 use tnoodle_scrambles::puzzles::cube_svg;
 use tnoodle_scrambles::{
@@ -103,12 +104,62 @@ fn near_solved_sq1(rng: &mut impl Rng) -> FullCube {
     c
 }
 
+/// Seeds for the `JavaRandom` comparison: empty, ASCII, long and non-ASCII.
+fn random_seeds() -> Vec<Vec<u8>> {
+    let long: Vec<u8> = (0..1000u32).map(|i| ((i * 31 + 7) % 256) as u8).collect();
+    vec![
+        Vec::new(),
+        b"abc".to_vec(),
+        long,
+        "ñandú".as_bytes().to_vec(),
+    ]
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// `JavaRandom` draws, 1,000 per seed for each bound and each `Random` method.
+fn print_java_random_cases() {
+    const DRAWS: usize = 1000;
+    for seed in random_seeds() {
+        for bound in [1, 2, 3, 12, 40320, 479_001_600, i32::MAX] {
+            let mut r = JavaRandom::from_seed(&seed);
+            let values: Vec<String> = (0..DRAWS)
+                .map(|_| {
+                    r.next_int_bounded(bound)
+                        .expect("positive bound")
+                        .to_string()
+                })
+                .collect();
+            println!("jr-bounded\t{}\t{bound}\t{}", hex(&seed), values.join(","));
+        }
+        let methods: [(&str, fn(&mut JavaRandom) -> String); 5] = [
+            ("int", |r| r.next_int().to_string()),
+            ("long", |r| r.next_long().to_string()),
+            ("boolean", |r| r.next_boolean().to_string()),
+            ("double", |r| format!("{:016x}", r.next_double().to_bits())),
+            ("bytes", |r| {
+                let mut b = [0u8; 37];
+                r.next_bytes(&mut b);
+                hex(&b)
+            }),
+        ];
+        for (name, draw) in methods {
+            let mut r = JavaRandom::from_seed(&seed);
+            let values: Vec<String> = (0..DRAWS).map(|_| draw(&mut r)).collect();
+            println!("jr-other\t{}\t{name}\t{}", hex(&seed), values.join(","));
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let seed: u64 = args.get(1).map_or(1, |s| s.parse().expect("seed"));
     let scale: usize = args.get(2).map_or(1, |s| s.parse().expect("scale"));
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     std::panic::set_hook(Box::new(|_| {}));
+    print_java_random_cases();
 
     // Canonicalization (AlgorithmBuilder) and the app's SVG renderer.
     for size in 2..=7 {
