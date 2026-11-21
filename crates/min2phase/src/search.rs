@@ -37,6 +37,8 @@ pub struct Search {
     sol_len: i32,
     probe_count: i64,
     max_probe: i64,
+    /// Keep looking for shorter solutions until this many probes are spent.
+    min_probe: i64,
     solution: Option<String>,
     verbose: u32,
 
@@ -68,6 +70,7 @@ impl Search {
             sol_len: 0,
             probe_count: 0,
             max_probe: i64::MAX,
+            min_probe: 0,
             solution: None,
             verbose: 0,
             cc: CubieCube::new(),
@@ -113,7 +116,7 @@ impl Search {
         facelets: &str,
         max_depth: i32,
         max_probe: i64,
-        _min_probe: i64,
+        min_probe: i64,
         verbose: u32,
         first_axis: Option<&str>,
         last_axis: Option<&str>,
@@ -157,6 +160,7 @@ impl Search {
         self.solution = None;
         self.sol_len = max_depth + 1;
         self.max_probe = max_probe;
+        self.min_probe = min_probe.min(max_probe);
         self.probe_count = 0;
 
         // Check if already solved
@@ -176,50 +180,37 @@ impl Search {
         // the original frame, so restricted searches only use urfidx 0.
         let orig_cc = self.cc.clone();
         let urf_count = if self.first_axis.is_some() || self.last_axis.is_some() { 1 } else { 3 };
+        let mut starts = Vec::new();
         for urfidx in 0..urf_count {
-            self.urfidx = urfidx;
-
-            if urfidx >= 3 {
-                // Inverse cube
-                let mut inv_cc = orig_cc.clone();
-                inv_cc.inv_cubie_cube();
-                self.cc = inv_cc;
-            } else {
-                self.cc = orig_cc.clone();
+            self.cc = orig_cc.clone();
+            for _ in 0..urfidx {
+                self.urf_conjugate();
             }
-
-            // Apply URF conjugation
-            if urfidx > 0 && urfidx < 3 {
-                for _ in 0..urfidx {
-                    self.urf_conjugate();
-                }
-            } else if urfidx > 3 {
-                for _ in 0..(urfidx - 3) {
-                    self.urf_conjugate();
-                }
-            }
-
-            let coord = match CoordCube::set_with_prun(&self.cc, max_depth) {
-                Some(c) => c,
-                None => continue,
-            };
-            self.node0[0] = coord;
-
-            // Iterative deepening
-            for depth1 in 0..=max_depth {
-                self.length1 = depth1;
-                self.depth1 = depth1;
-                self.valid1 = 0;
-
-                if self.phase1(0) {
-                    if let Some(ref sol) = self.solution {
-                        return SearchResult::Solution(sol.clone());
-                    }
-                }
+            if let Some(coord) = CoordCube::set_with_prun(&self.cc, max_depth) {
+                starts.push((urfidx, self.cc.clone(), coord));
             }
         }
 
-        SearchResult::Error(-7) // no solution found
+        // Same order as Java's search(): every orientation at one phase-1
+        // length before the next, and only while a shorter solution is
+        // still possible. A found solution tightens `sol_len`.
+        let mut length1 = 0;
+        while length1 < self.sol_len {
+            for (urfidx, cc, coord) in &starts {
+                self.urfidx = *urfidx;
+                self.cc = cc.clone();
+                self.node0[0] = coord.clone();
+                self.length1 = length1;
+                self.depth1 = length1;
+                self.valid1 = 0;
+                if self.phase1(0) {
+                    // Probe limit reached.
+                    return self.solution.clone().map_or(SearchResult::Error(-8), SearchResult::Solution);
+                }
+            }
+            length1 += 1;
+        }
+        self.solution.clone().map_or(SearchResult::Error(-7), SearchResult::Solution)
     }
 
     fn urf_conjugate(&mut self) {
@@ -235,12 +226,8 @@ impl Search {
         self.cc.ca.copy_from_slice(&temp2.ca);
     }
 
-    /// Phase 1 IDA* search.
+    /// Phase 1 IDA* search. Returns true when the whole search must stop.
     fn phase1(&mut self, depth: i32) -> bool {
-        if self.probe_count >= self.max_probe {
-            return false;
-        }
-
         let max_l = if depth == 0 { self.length1 } else { self.length1 - depth };
         let prun = self.node0[depth as usize].prun;
 
@@ -287,10 +274,16 @@ impl Search {
         false
     }
 
-    /// Initialize phase 2 from phase 1 result.
+    /// Initialize phase 2 from phase 1 result. Port of Java's
+    /// `initPhase2Pre`: returns true when the whole search must stop, which
+    /// is once `max_probe` is spent without a solution, or `min_probe` with one.
     fn init_phase2(&mut self) -> bool {
         let ct = &*TABLES;
         let p2 = &*PHASE2_TABLES;
+        let limit = if self.solution.is_none() { self.max_probe } else { self.min_probe };
+        if self.probe_count >= limit {
+            return true;
+        }
         self.probe_count += 1;
 
         // Apply phase 1 moves to get cube state at phase boundary
@@ -332,7 +325,7 @@ impl Search {
                 let sol = self.build_solution(depth2);
                 self.sol_len = self.length1 + depth2;
                 self.solution = Some(sol);
-                return true;
+                return self.probe_count >= self.min_probe;
             }
         }
         false
@@ -404,33 +397,15 @@ impl Search {
 
         // Phase 1 moves
         for i in 0..self.length1 as usize {
-            let mut m = self.move1[i] as usize;
-            // Map through URF if needed
-            if self.urfidx < 3 {
-                for _ in 0..self.urfidx {
-                    m = URF_MOVE[0][m] as usize;
-                }
-            } else {
-                // Inverse
-                for _ in 0..(self.urfidx - 3) {
-                    m = URF_MOVE[0][m] as usize;
-                }
-            }
+            // Map back from the URF-conjugated frame, like Java's
+            // urfMove[urfIdx][move] (only urfidx 0..3 are searched).
+            let m = URF_MOVE[self.urfidx][self.move1[i] as usize] as usize;
             moves.push(util::MOVE2STR[m].trim().to_string());
         }
 
         // Phase 2 moves
         for i in 0..depth2 as usize {
-            let mut m = util::UD2STD[self.move2[i] as usize];
-            if self.urfidx < 3 {
-                for _ in 0..self.urfidx {
-                    m = URF_MOVE[0][m] as usize;
-                }
-            } else {
-                for _ in 0..(self.urfidx - 3) {
-                    m = URF_MOVE[0][m] as usize;
-                }
-            }
+            let m = URF_MOVE[self.urfidx][util::UD2STD[self.move2[i] as usize]] as usize;
             moves.push(util::MOVE2STR[m].trim().to_string());
         }
 

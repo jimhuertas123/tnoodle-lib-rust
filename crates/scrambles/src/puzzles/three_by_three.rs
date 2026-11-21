@@ -11,7 +11,10 @@ use crate::algorithm_builder::{AlgorithmBuilder, MergingMode};
 use crate::puzzle::{Puzzle, PuzzleStateAndGenerator, solve_in};
 
 const MAX_SCRAMBLE_LENGTH: i32 = 21;
-const MAX_PROBE: i64 = 1_000_000;
+/// Java's `THREE_BY_THREE_TIMEOUT` and `THREE_BY_THREE_TIMEMIN`. Java's
+/// `SearchWCA` reads them as milliseconds; here they are probe counts.
+const MAX_PROBE: i64 = 60_000;
+const MIN_PROBE: i64 = 200;
 /// min2phase verbose flag: return the inverse of the solution (the scramble).
 const INVERSE_SOLUTION: u32 = 2;
 const FM_PADDING: &str = "R' U' F";
@@ -31,7 +34,7 @@ fn generate_random_moves(
             &facelets,
             MAX_SCRAMBLE_LENGTH,
             MAX_PROBE,
-            0,
+            MIN_PROBE,
             INVERSE_SOLUTION,
             first_axis,
             last_axis,
