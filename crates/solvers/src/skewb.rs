@@ -378,7 +378,7 @@ pub fn solve(state: State, max_depth: usize) -> Option<String> {
     None
 }
 
-/// Generate a scramble of exactly `length` moves.
+/// Generate a scramble (inverse of a solution) of exactly `length` moves.
 /// Returns `None` if no solution of exactly that length exists.
 pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let tables = &*TABLES;
@@ -387,14 +387,18 @@ pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let length = length.min(MAX_LENGTH);
 
     let result = ida_search(tables, 0, state.perm, state.twist, length, -1, &mut sol, &mut rng);
-    if result != -1 {
-        let solution_length = result as usize;
-        if solution_length == 0 {
-            return Some(String::new());
-        }
-        return Some(get_solution_string(&sol, solution_length));
+    if result == -1 {
+        return None;
     }
-    None
+    let solution = get_solution_string(&sol, result as usize);
+    // Skewb turns are only ever 120 or -120 degrees, so inverting a move
+    // just toggles its prime.
+    let scramble: Vec<String> = solution
+        .split_whitespace()
+        .rev()
+        .map(|m| m.strip_suffix('\'').map_or_else(|| format!("{m}'"), str::to_string))
+        .collect();
+    Some(scramble.join(" "))
 }
 
 // ---------------------------------------------------------------------------
