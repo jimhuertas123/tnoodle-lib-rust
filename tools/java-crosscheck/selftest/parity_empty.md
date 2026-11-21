@@ -1,0 +1,2 @@
+| Check | Java | Rust | Decision |
+| --- | --- | --- | --- |

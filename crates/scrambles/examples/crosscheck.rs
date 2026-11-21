@@ -184,12 +184,18 @@ fn main() {
         println!("333solve\t{facelets}\t{}", scramble.trim());
     }
 
-    // Full scrambles for every event, judged by Java.
+    // Full scrambles for every event, judged by Java. JUDGE_COUNT overrides
+    // the per-event count.
+    let judge_count: Option<usize> = std::env::var("JUDGE_COUNT")
+        .ok()
+        .map(|s| s.parse().expect("JUDGE_COUNT"));
     for &puzzle in PuzzleType::ALL {
-        let count = match puzzle {
-            PuzzleType::Four | PuzzleType::FourNi => 20,
-            _ => 50,
-        } * scale;
+        let count = judge_count.unwrap_or(
+            match puzzle {
+                PuzzleType::Four | PuzzleType::FourNi => 20,
+                _ => 50,
+            } * scale,
+        );
         for _ in 0..count {
             let scramble = generate_scramble(puzzle, &mut rng).replace('\n', "\\n");
             println!("scramble\t{}\t{scramble}", puzzle.short_name());

@@ -39,8 +39,9 @@ public class CrossCheck {
     /** Per check: cases seen, cases that differ, and the first few differences. */
     private static final Map<String, int[]> counts = new LinkedHashMap<>();
     private static final Map<String, List<String>> examples = new LinkedHashMap<>();
-    /** Checks that only inform: inputs the scramble generators never produce. */
-    private static final List<String> informational = Arrays.asList("canonrot", "svgrot", "333solve-same-as-java");
+    /** Checks with an intentional difference, read from the `Check` column of PARITY.md. */
+    private static final java.util.Set<String> expected = new java.util.HashSet<>();
+    private static final Pattern PARITY_ROW = Pattern.compile("^\\|\\s*`([a-z0-9-]+)`\\s*\\|");
 
     private static final Map<String, List<Integer>> rustLengths = new LinkedHashMap<>();
     private static final Map<String, TreeSet<String>> rustTokens = new LinkedHashMap<>();
@@ -122,6 +123,14 @@ public class CrossCheck {
     }
 
     public static void main(String[] args) throws Exception {
+        if (args.length > 1) {
+            for (String row : java.nio.file.Files.readAllLines(java.nio.file.Paths.get(args[1]))) {
+                Matcher m = PARITY_ROW.matcher(row);
+                if (m.find()) {
+                    expected.add(m.group(1));
+                }
+            }
+        }
         CubePuzzle[] cubes = new CubePuzzle[8];
         for (int size = 2; size <= 7; size++) {
             cubes[size] = new CubePuzzle(size);
@@ -306,9 +315,9 @@ public class CrossCheck {
         boolean failed = false;
         System.out.println("check                           cases  differ");
         for (Map.Entry<String, int[]> e : counts.entrySet()) {
-            boolean info = informational.contains(e.getKey());
-            String status = e.getValue()[1] == 0 ? "OK" : info ? "info" : "FAIL";
-            failed |= e.getValue()[1] != 0 && !info;
+            boolean listed = expected.contains(e.getKey());
+            String status = e.getValue()[1] == 0 ? "OK" : listed ? "expected" : "FAIL";
+            failed |= e.getValue()[1] != 0 && !listed;
             System.out.printf("%-30s %6d %7d  %s%n", e.getKey(), e.getValue()[0], e.getValue()[1], status);
         }
 
