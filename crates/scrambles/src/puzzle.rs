@@ -243,17 +243,16 @@ pub fn solve_in<P: Puzzle + ?Sized>(puzzle: &P, ps: &P::State, n: i32) -> Option
 
     let mut fringe_ties = 0u32;
 
+    // Like Java, an empty fringe keeps the last minimum it had (-1 before any).
+    let mut min_fringe_scrambled = -1;
+    let mut min_fringe_solved = -1;
     while !fringe_solved.is_empty() || !fringe_scrambled.is_empty() {
-        let min_fringe_scrambled = if fringe_scrambled.is_empty() {
-            i32::MAX
-        } else {
-            fringe_scrambled.smallest_value()
-        };
-        let min_fringe_solved = if fringe_solved.is_empty() {
-            i32::MAX
-        } else {
-            fringe_solved.smallest_value()
-        };
+        if !fringe_scrambled.is_empty() {
+            min_fringe_scrambled = fringe_scrambled.smallest_value();
+        }
+        if !fringe_solved.is_empty() {
+            min_fringe_solved = fringe_solved.smallest_value();
+        }
 
         let extend_solved = if fringe_solved.is_empty() || fringe_scrambled.is_empty() {
             !fringe_solved.is_empty()
@@ -262,8 +261,10 @@ pub fn solve_in<P: Puzzle + ?Sized>(puzzle: &P, ps: &P::State, n: i32) -> Option
         } else if min_fringe_solved > min_fringe_scrambled {
             false
         } else {
+            // Java: (fringeTies++) % 2 == 0, so the solved side goes first.
+            let extend = fringe_ties % 2 == 0;
             fringe_ties += 1;
-            fringe_ties % 2 == 0
+            extend
         };
 
         // We need to borrow both sides mutably, but only one at a time.
