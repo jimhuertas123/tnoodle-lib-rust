@@ -103,17 +103,11 @@ impl<S: PuzzleState> AlgorithmBuilder<S> {
                 break;
             }
         }
-        // One of state()'s successors must be newNormalizedState.
-        let canonical_move = match canonical_move {
-            Some(m) => m,
-            None => {
-                // This shouldn't happen, but if it does just append
-                return Ok(IndexAndMove {
-                    index: self.moves.len(),
-                    mv: Some(mv.to_string()),
-                });
-            }
-        };
+        // One of state()'s successors must be newNormalizedState. Java only
+        // asserts this and then fails on the null move, so report it the same
+        // way instead of appending a move that is not canonical.
+        let canonical_move = canonical_move
+            .ok_or_else(|| PuzzleError::InvalidMove(format!("no canonical move matches {mv}")))?;
 
         if merging_mode == MergingMode::CanonicalizeMoves {
             // Walk backwards looking for a move that doesn't commute
@@ -178,9 +172,13 @@ impl<S: PuzzleState> AlgorithmBuilder<S> {
                 new_cost_move = 0;
             }
         } else {
-            // New move
+            // New move. A rotation with no earlier move to fold into has
+            // nothing to append; Java rejects it as an unrecognized turn.
             old_cost_move = 0;
-            let mv = iam.mv.as_ref().unwrap();
+            let mv = iam
+                .mv
+                .as_ref()
+                .ok_or_else(|| PuzzleError::InvalidMove(format!("unrecognized turn {new_move}")))?;
             new_cost_move = self.states.last().unwrap().get_move_cost(mv);
             self.moves.push(mv.clone());
             self.states.push(self.states[0].clone()); // placeholder
@@ -272,6 +270,15 @@ mod tests {
         // From HugeScrambleTest.testCubeNormalization.
         let alg = "D2 U' L2 B2 F2 D B2 U' B2 F D' F U' R F2 L2 D' B D F'";
         assert_eq!(canonicalize(3, alg), alg);
+    }
+
+    #[test]
+    fn rotations_behave_like_java() {
+        // Java folds a rotation into the first move, and rejects one with
+        // no move before it ("Unrecognized turn null") instead of panicking.
+        assert_eq!(canonicalize(3, "R x"), "");
+        let mut ab = AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(3));
+        assert!(ab.append_algorithm("x R").is_err());
     }
 
     #[test]
