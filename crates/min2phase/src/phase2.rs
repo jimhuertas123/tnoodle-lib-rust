@@ -61,7 +61,13 @@ impl Phase2Tables {
 
         let c_prun = bfs(&c_perm_move, &m_perm_move);
         let e_prun = bfs(&e_perm_move, &m_perm_move);
-        Self { c_perm_move, e_perm_move, m_perm_move, c_prun, e_prun }
+        Self {
+            c_perm_move,
+            e_perm_move,
+            m_perm_move,
+            c_prun,
+            e_prun,
+        }
     }
 
     /// Lower bound on the number of phase-2 moves needed.

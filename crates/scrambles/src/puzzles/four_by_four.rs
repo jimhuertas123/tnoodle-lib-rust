@@ -14,7 +14,8 @@ use crate::puzzle::{Puzzle, PuzzleStateAndGenerator, solve_in};
 fn generate_random_moves(rng: &mut impl Rng) -> PuzzleStateAndGenerator<CubeState> {
     let scramble = Search::new().random_state(rng);
     let mut ab = AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(4));
-    ab.append_algorithm(&scramble).expect("threephase emits valid 4x4 moves");
+    ab.append_algorithm(&scramble)
+        .expect("threephase emits valid 4x4 moves");
     ab.into_state_and_generator()
 }
 
@@ -62,7 +63,9 @@ mod tests {
             let moves = scramble.split_whitespace().count();
             // Java's threephase scrambles are typically 40-48 moves.
             assert!((35..=55).contains(&moves), "{moves} moves: {scramble}");
-            assert!(!scramble.contains("Lw") && !scramble.contains("Dw") && !scramble.contains("Bw"));
+            assert!(
+                !scramble.contains("Lw") && !scramble.contains("Dw") && !scramble.contains("Bw")
+            );
             CubeState::solved(4).apply_algorithm(&scramble).unwrap();
         }
     }
@@ -73,9 +76,16 @@ mod tests {
         for _ in 0..5 {
             let scramble = generate_scramble_ni(&mut rng);
             let moves: Vec<&str> = scramble.split_whitespace().collect();
-            let rotations = moves.iter().filter(|m| m.starts_with(['x', 'y', 'z'])).count();
+            let rotations = moves
+                .iter()
+                .filter(|m| m.starts_with(['x', 'y', 'z']))
+                .count();
             assert!(rotations <= 2, "{scramble}");
-            assert!(moves[moves.len() - rotations..].iter().all(|m| m.starts_with(['x', 'y', 'z'])));
+            assert!(
+                moves[moves.len() - rotations..]
+                    .iter()
+                    .all(|m| m.starts_with(['x', 'y', 'z']))
+            );
         }
     }
 }

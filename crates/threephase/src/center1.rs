@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 use crate::center_cube::CenterCube;
 use crate::full_cube::CENTER_FACELET;
 use crate::moves;
-use crate::util::{swap_u8, CNK};
+use crate::util::{CNK, swap_u8};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -285,12 +285,9 @@ impl Center1 {
 
 /// Rotation-to-string table (sparse -- many entries are empty).
 pub const ROT2STR: [&str; 48] = [
-    "",       "y2",     "x",      "x y2",   "x2",     "z2",     "x'",     "x' y2",
-    "",       "",       "",       "",       "",       "",       "",       "",
-    "y z",    "y' z'",  "y2 z",   "z'",     "y' z",   "y z'",   "z",      "z y2",
-    "",       "",       "",       "",       "",       "",       "",       "",
-    "y' x'",  "y x",    "y'",     "y",      "y' x",   "y x'",   "y z2",   "y' z2",
-    "",       "",       "",       "",       "",       "",       "",       "",
+    "", "y2", "x", "x y2", "x2", "z2", "x'", "x' y2", "", "", "", "", "", "", "", "", "y z",
+    "y' z'", "y2 z", "z'", "y' z", "y z'", "z", "z y2", "", "", "", "", "", "", "", "", "y' x'",
+    "y x", "y'", "y", "y' x", "y x'", "y z2", "y' z2", "", "", "", "", "", "", "", "",
 ];
 
 // ---------------------------------------------------------------------------

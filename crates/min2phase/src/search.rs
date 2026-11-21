@@ -4,8 +4,7 @@
 /// The solver works in two phases:
 /// 1. Reduce cube to G1 subgroup (edges oriented, corners oriented, E-slice edges in E-slice)
 /// 2. Solve within G1 (only U, D, R2, L2, F2, B2 moves)
-
-use crate::coord_cube::{CoordCube, COORD_TABLES};
+use crate::coord_cube::{COORD_TABLES, CoordCube};
 use crate::cubie_cube::{self, CubieCube, TABLES, URF_MOVE};
 use crate::phase2::PHASE2_TABLES;
 use crate::util;
@@ -101,7 +100,9 @@ impl Search {
         min_probe: i64,
         verbose: u32,
     ) -> SearchResult {
-        self.solution_with_restrictions(facelets, max_depth, max_probe, min_probe, verbose, None, None)
+        self.solution_with_restrictions(
+            facelets, max_depth, max_probe, min_probe, verbose, None, None,
+        )
     }
 
     /// Like [`Search::solution`], but the solution (before any inversion
@@ -179,7 +180,11 @@ impl Search {
         // does not invert their result. Axis restrictions are expressed in
         // the original frame, so restricted searches only use urfidx 0.
         let orig_cc = self.cc.clone();
-        let urf_count = if self.first_axis.is_some() || self.last_axis.is_some() { 1 } else { 3 };
+        let urf_count = if self.first_axis.is_some() || self.last_axis.is_some() {
+            1
+        } else {
+            3
+        };
         let mut starts = Vec::new();
         for urfidx in 0..urf_count {
             self.cc = orig_cc.clone();
@@ -205,12 +210,17 @@ impl Search {
                 self.valid1 = 0;
                 if self.phase1(0) {
                     // Probe limit reached.
-                    return self.solution.clone().map_or(SearchResult::Error(-8), SearchResult::Solution);
+                    return self
+                        .solution
+                        .clone()
+                        .map_or(SearchResult::Error(-8), SearchResult::Solution);
                 }
             }
             length1 += 1;
         }
-        self.solution.clone().map_or(SearchResult::Error(-7), SearchResult::Solution)
+        self.solution
+            .clone()
+            .map_or(SearchResult::Error(-7), SearchResult::Solution)
     }
 
     fn urf_conjugate(&mut self) {
@@ -228,7 +238,11 @@ impl Search {
 
     /// Phase 1 IDA* search. Returns true when the whole search must stop.
     fn phase1(&mut self, depth: i32) -> bool {
-        let max_l = if depth == 0 { self.length1 } else { self.length1 - depth };
+        let max_l = if depth == 0 {
+            self.length1
+        } else {
+            self.length1 - depth
+        };
         let prun = self.node0[depth as usize].prun;
 
         if prun > max_l {
@@ -252,7 +266,9 @@ impl Search {
                 let last_move = self.move1[(depth - 1) as usize];
                 let last_axis = last_move / 3;
                 let this_axis = m as i32 / 3;
-                if last_axis == this_axis || (last_axis % 3 == this_axis % 3 && last_axis > this_axis) {
+                if last_axis == this_axis
+                    || (last_axis % 3 == this_axis % 3 && last_axis > this_axis)
+                {
                     continue;
                 }
             }
@@ -280,7 +296,11 @@ impl Search {
     fn init_phase2(&mut self) -> bool {
         let ct = &*TABLES;
         let p2 = &*PHASE2_TABLES;
-        let limit = if self.solution.is_none() { self.max_probe } else { self.min_probe };
+        let limit = if self.solution.is_none() {
+            self.max_probe
+        } else {
+            self.min_probe
+        };
         if self.probe_count >= limit {
             return true;
         }
@@ -435,7 +455,10 @@ mod tests {
         let facelets = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
         match search.solution(facelets, 21, 100000, 0, 0) {
             SearchResult::Solution(s) => {
-                assert!(s.is_empty(), "solved cube should return empty string, got: {s}");
+                assert!(
+                    s.is_empty(),
+                    "solved cube should return empty string, got: {s}"
+                );
             }
             SearchResult::Error(e) => {
                 panic!("unexpected error: {e}");
@@ -447,7 +470,13 @@ mod tests {
         "URFDLB".find(&mv[..1]).unwrap() % 3
     }
 
-    fn solve_ok(search: &mut Search, facelets: &str, verbose: u32, first: Option<&str>, last: Option<&str>) -> String {
+    fn solve_ok(
+        search: &mut Search,
+        facelets: &str,
+        verbose: u32,
+        first: Option<&str>,
+        last: Option<&str>,
+    ) -> String {
         match search.solution_with_restrictions(facelets, 21, 1_000_000, 0, verbose, first, last) {
             SearchResult::Solution(s) => s,
             SearchResult::Error(e) => panic!("error {e} for {facelets}"),
@@ -463,7 +492,11 @@ mod tests {
             let scramble = solve_ok(&mut search, &facelets, 2, None, None);
             let moves: Vec<&str> = scramble.split_whitespace().collect();
             assert!(moves.len() <= 21, "{} moves: {scramble}", moves.len());
-            assert_eq!(crate::tools::from_scramble(&scramble), facelets, "scramble {scramble}");
+            assert_eq!(
+                crate::tools::from_scramble(&scramble),
+                facelets,
+                "scramble {scramble}"
+            );
             for w in moves.windows(2) {
                 assert_ne!(&w[0][..1], &w[1][..1], "same face twice: {scramble}");
             }
@@ -483,8 +516,16 @@ mod tests {
                 let facelets = crate::tools::random_state(&mut rng);
                 let solution = solve_ok(&mut search, &facelets, 0, Some(first), Some(last));
                 let moves: Vec<&str> = solution.split_whitespace().collect();
-                assert_ne!(axis(moves[0]), axis(first), "{solution} starts on {first} axis");
-                assert_ne!(axis(moves[moves.len() - 1]), axis(last), "{solution} ends on {last} axis");
+                assert_ne!(
+                    axis(moves[0]),
+                    axis(first),
+                    "{solution} starts on {first} axis"
+                );
+                assert_ne!(
+                    axis(moves[moves.len() - 1]),
+                    axis(last),
+                    "{solution} ends on {last} axis"
+                );
                 // Applying the inverse of the solution must give back the state.
                 let scramble = solve_ok(&mut search, &facelets, 2, Some(first), Some(last));
                 assert_eq!(crate::tools::from_scramble(&scramble), facelets);

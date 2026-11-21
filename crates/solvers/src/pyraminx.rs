@@ -298,7 +298,17 @@ fn search(
         let nep = tables.move_edge_perm[edge_perm][mv];
         let neo = tables.move_edge_orient[edge_orient][mv];
         let nco = tables.move_corner_orient[corner_orient][mv];
-        if search(tables, nep, neo, nco, depth + 1, length - 1, mv, solution, rng) {
+        if search(
+            tables,
+            nep,
+            neo,
+            nco,
+            depth + 1,
+            length - 1,
+            mv,
+            solution,
+            rng,
+        ) {
             solution[depth] = mv;
             return true;
         }

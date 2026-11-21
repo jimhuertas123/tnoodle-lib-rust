@@ -32,8 +32,14 @@ mod tests {
         let mut rng = rand::rng();
         for _ in 0..50 {
             let scramble = generate_scramble(&mut rng);
-            assert_eq!(scramble.split_whitespace().count(), SCRAMBLE_LENGTH, "{scramble}");
-            CubeState::solved(2).apply_algorithm(&scramble).expect("valid 2x2 moves");
+            assert_eq!(
+                scramble.split_whitespace().count(),
+                SCRAMBLE_LENGTH,
+                "{scramble}"
+            );
+            CubeState::solved(2)
+                .apply_algorithm(&scramble)
+                .expect("valid 2x2 moves");
         }
     }
 
@@ -47,7 +53,9 @@ mod tests {
             let state = two_by_two::random_state(&mut rng);
             let scramble = two_by_two::generate_exactly(state, SCRAMBLE_LENGTH).unwrap();
             let solution = two_by_two::solve(state, SCRAMBLE_LENGTH).unwrap();
-            let result = solved.apply_algorithm(&format!("{scramble} {solution}")).unwrap();
+            let result = solved
+                .apply_algorithm(&format!("{scramble} {solution}"))
+                .unwrap();
             assert!(result.equals_normalized(&solved), "{scramble} / {solution}");
         }
     }

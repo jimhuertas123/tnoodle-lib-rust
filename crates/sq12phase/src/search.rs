@@ -108,8 +108,14 @@ impl Search {
         for length1 in start_depth..100 {
             self.length1 = length1;
             self.maxlen2 = 17.min(31 - length1);
-            if self.ida_phase1(cube, shape, shape_tables.shape_prun[shape as usize], length1, 0, -1)
-            {
+            if self.ida_phase1(
+                cube,
+                shape,
+                shape_tables.shape_prun[shape as usize],
+                length1,
+                0,
+                -1,
+            ) {
                 break;
             }
         }
@@ -127,7 +133,12 @@ impl Search {
 
     /// [`Search::solution_opt`] with verbosity/mode flags.
     #[must_use]
-    pub fn solution_opt_with_verbose(&mut self, cube: &FullCube, maxl: i32, verbose: i32) -> Option<String> {
+    pub fn solution_opt_with_verbose(
+        &mut self,
+        cube: &FullCube,
+        maxl: i32,
+        verbose: i32,
+    ) -> Option<String> {
         let shape_tables = &*SHAPE_TABLES;
         self.verbose = verbose;
         self.sol_string = None;
@@ -212,7 +223,15 @@ impl Search {
                     break;
                 } else if prun * PRUN_INC < maxl + PRUN_INC - 1 {
                     self.moves[depth as usize] = m;
-                    if self.phase1_opt(cube, shapex, prun, maxl - 1, depth + 1, 1, last_turns | m << 4) {
+                    if self.phase1_opt(
+                        cube,
+                        shapex,
+                        prun,
+                        maxl - 1,
+                        depth + 1,
+                        1,
+                        last_turns | m << 4,
+                    ) {
                         return true;
                     }
                 }
@@ -643,7 +662,10 @@ mod tests {
         let mut search = Search::new();
         assert_eq!(search.solution_opt(&c, 1).unwrap().trim(), "(-3,1)");
         assert_eq!(search.solution_opt(&c, 2).unwrap().trim(), "(-3,1)");
-        assert_eq!(search.solution_opt(&FullCube::new(), 0).as_deref(), Some(""));
+        assert_eq!(
+            search.solution_opt(&FullCube::new(), 0).as_deref(),
+            Some("")
+        );
     }
 
     #[test]
@@ -657,7 +679,9 @@ mod tests {
             // Take the first few WCA moves of a valid scramble.
             let prefix: String = scramble.split('/').take(3).collect::<Vec<_>>().join("/");
             let (state, length) = apply(&FullCube::new(), &prefix);
-            let solution = search.solution_opt(&state, length).expect("within its own length");
+            let solution = search
+                .solution_opt(&state, length)
+                .expect("within its own length");
             let (solved, solution_length) = apply(&state, &solution);
             assert!(solved.is_solved(), "{prefix} + {solution}");
             assert!(solution_length <= length, "{solution} longer than {prefix}");
@@ -669,7 +693,11 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(11);
         let mut search = Search::new();
         for _ in 0..20 {
-            assert!(search.solution_opt(&FullCube::random_cube(&mut rng), 10).is_none());
+            assert!(
+                search
+                    .solution_opt(&FullCube::random_cube(&mut rng), 10)
+                    .is_none()
+            );
         }
     }
 
@@ -702,7 +730,10 @@ mod tests {
         for _ in 0..5 {
             let c = FullCube::random_cube(&mut rng);
             let sol = search.solution(&c);
-            assert!(sol.is_some(), "solver should find a solution for random cube");
+            assert!(
+                sol.is_some(),
+                "solver should find a solution for random cube"
+            );
             let s = sol.unwrap();
             // Solution should contain at least one slash (twist)
             if !c.is_solved() {

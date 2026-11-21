@@ -1,9 +1,8 @@
-/// Coordinate-level cube representation and pruning tables.
-/// Port of cs.min2phase.CoordCube
-
-use std::sync::LazyLock;
 use crate::cubie_cube::{self, CubieCube, CubieCubeTables};
 use crate::util;
+/// Coordinate-level cube representation and pruning tables.
+/// Port of cs.min2phase.CoordCube
+use std::sync::LazyLock;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -42,22 +41,22 @@ pub static COORD_TABLES: LazyLock<CoordTables> = LazyLock::new(CoordTables::init
 
 pub struct CoordTables {
     // Phase 1 move & conjugation tables
-    pub ud_slice_move: Vec<Vec<u16>>,   // [N_SLICE][N_MOVES]
-    pub twist_move: Vec<Vec<u16>>,      // [N_TWIST_SYM][N_MOVES]
-    pub flip_move: Vec<Vec<u16>>,       // [N_FLIP_SYM][N_MOVES]
-    pub ud_slice_conj: Vec<Vec<u16>>,   // [N_SLICE][8]
+    pub ud_slice_move: Vec<Vec<u16>>, // [N_SLICE][N_MOVES]
+    pub twist_move: Vec<Vec<u16>>,    // [N_TWIST_SYM][N_MOVES]
+    pub flip_move: Vec<Vec<u16>>,     // [N_FLIP_SYM][N_MOVES]
+    pub ud_slice_conj: Vec<Vec<u16>>, // [N_SLICE][8]
 
     // Phase 1 pruning tables
     pub ud_slice_twist_prun: Vec<u32>,
     pub ud_slice_flip_prun: Vec<u32>,
 
     // Phase 2 move & conjugation tables
-    pub c_perm_move: Vec<Vec<u16>>,     // [N_PERM_SYM][N_MOVES2]
-    pub e_perm_move: Vec<Vec<u16>>,     // [N_PERM_SYM][N_MOVES2]
-    pub m_perm_move: Vec<Vec<u16>>,     // [N_MPERM][N_MOVES2]
-    pub m_perm_conj: Vec<Vec<u16>>,     // [N_MPERM][16]
-    pub c_comb_p_move: Vec<Vec<u16>>,   // [N_COMB][N_MOVES2]
-    pub c_comb_p_conj: Vec<Vec<u16>>,   // [N_COMB][16]
+    pub c_perm_move: Vec<Vec<u16>>,   // [N_PERM_SYM][N_MOVES2]
+    pub e_perm_move: Vec<Vec<u16>>,   // [N_PERM_SYM][N_MOVES2]
+    pub m_perm_move: Vec<Vec<u16>>,   // [N_MPERM][N_MOVES2]
+    pub m_perm_conj: Vec<Vec<u16>>,   // [N_MPERM][16]
+    pub c_comb_p_move: Vec<Vec<u16>>, // [N_COMB][N_MOVES2]
+    pub c_comb_p_conj: Vec<Vec<u16>>, // [N_COMB][16]
 
     // Phase 2 pruning tables
     pub mc_perm_prun: Vec<u32>,
@@ -307,7 +306,8 @@ impl CoordTables {
                     while sym_st != 0 {
                         if sym_st & 1 == 1 {
                             let idxx = if let Some(rc) = raw_conj {
-                                let conj_idx = j ^ ((cubie_cube::SYM_E2C_MAGIC >> (j << 1)) & 3) as usize;
+                                let conj_idx =
+                                    j ^ ((cubie_cube::SYM_E2C_MAGIC >> (j << 1)) & 3) as usize;
                                 if is_phase2 {
                                     symx * n_raw + rc[rawx][conj_idx] as usize
                                 } else {
@@ -339,7 +339,10 @@ impl CoordTables {
             Some(&self.ud_slice_conj),
             &self.twist_move,
             &ct.sym_state_twist,
-            3, false, 6, 9,
+            3,
+            false,
+            6,
+            9,
         );
     }
 
@@ -350,7 +353,10 @@ impl CoordTables {
             Some(&self.ud_slice_conj),
             &self.flip_move,
             &ct.sym_state_flip,
-            3, false, 6, 9,
+            3,
+            false,
+            6,
+            9,
         );
     }
 
@@ -361,7 +367,10 @@ impl CoordTables {
             Some(&self.m_perm_conj),
             &self.c_perm_move,
             &ct.sym_state_perm,
-            4, true, 8, 14,
+            4,
+            true,
+            8,
+            14,
         );
     }
 
@@ -372,7 +381,10 @@ impl CoordTables {
             Some(&self.c_comb_p_conj),
             &self.e_perm_move,
             &ct.sym_state_perm,
-            4, true, 7, 13,
+            4,
+            true,
+            7,
+            13,
         );
     }
 }
@@ -398,7 +410,12 @@ pub struct CoordCube {
 impl CoordCube {
     pub fn new() -> Self {
         Self {
-            twist: 0, tsym: 0, flip: 0, fsym: 0, slice: 0, prun: 0,
+            twist: 0,
+            tsym: 0,
+            flip: 0,
+            fsym: 0,
+            slice: 0,
+            prun: 0,
         }
     }
 
@@ -426,18 +443,27 @@ impl CoordCube {
 
         let prun = get_pruning(
             &tables.ud_slice_twist_prun,
-            (twist * N_SLICE as i32 + tables.ud_slice_conj[slice as usize][tsym as usize] as i32) as usize,
+            (twist * N_SLICE as i32 + tables.ud_slice_conj[slice as usize][tsym as usize] as i32)
+                as usize,
         ) as i32;
         let prun = prun.max(get_pruning(
             &tables.ud_slice_flip_prun,
-            (flip * N_SLICE as i32 + tables.ud_slice_conj[slice as usize][fsym as usize] as i32) as usize,
+            (flip * N_SLICE as i32 + tables.ud_slice_conj[slice as usize][fsym as usize] as i32)
+                as usize,
         ) as i32);
 
         if prun > depth {
             return None;
         }
 
-        Some(Self { twist, tsym, flip, fsym, slice, prun })
+        Some(Self {
+            twist,
+            tsym,
+            flip,
+            fsym,
+            slice,
+            prun,
+        })
     }
 
     /// Apply move and compute pruning for phase 1.
@@ -447,23 +473,27 @@ impl CoordCube {
 
         self.slice = tables.ud_slice_move[cc.slice as usize][m] as i32;
 
-        let flip_raw = tables.flip_move[cc.flip as usize][ct.sym8_move[m << 3 | cc.fsym as usize]] as i32;
+        let flip_raw =
+            tables.flip_move[cc.flip as usize][ct.sym8_move[m << 3 | cc.fsym as usize]] as i32;
         self.fsym = (flip_raw & 7) ^ cc.fsym;
         self.flip = flip_raw >> 3;
 
-        let twist_raw = tables.twist_move[cc.twist as usize][ct.sym8_move[m << 3 | cc.tsym as usize]] as i32;
+        let twist_raw =
+            tables.twist_move[cc.twist as usize][ct.sym8_move[m << 3 | cc.tsym as usize]] as i32;
         self.tsym = (twist_raw & 7) ^ cc.tsym;
         self.twist = twist_raw >> 3;
 
         self.prun = get_pruning(
             &tables.ud_slice_twist_prun,
             (self.twist * N_SLICE as i32
-                + tables.ud_slice_conj[self.slice as usize][self.tsym as usize] as i32) as usize,
+                + tables.ud_slice_conj[self.slice as usize][self.tsym as usize] as i32)
+                as usize,
         ) as i32;
         self.prun = self.prun.max(get_pruning(
             &tables.ud_slice_flip_prun,
             (self.flip * N_SLICE as i32
-                + tables.ud_slice_conj[self.slice as usize][self.fsym as usize] as i32) as usize,
+                + tables.ud_slice_conj[self.slice as usize][self.fsym as usize] as i32)
+                as usize,
         ) as i32);
 
         self.prun
@@ -491,9 +521,15 @@ mod tests {
         let tables = &*COORD_TABLES;
         // Verify tables are initialized with non-trivial data:
         // Check that some move table has nonzero entries
-        let has_nonzero = tables.twist_move.iter().any(|row| row.iter().any(|&v| v != 0));
+        let has_nonzero = tables
+            .twist_move
+            .iter()
+            .any(|row| row.iter().any(|&v| v != 0));
         assert!(has_nonzero, "twist move table should have nonzero entries");
-        let has_nonzero = tables.flip_move.iter().any(|row| row.iter().any(|&v| v != 0));
+        let has_nonzero = tables
+            .flip_move
+            .iter()
+            .any(|row| row.iter().any(|&v| v != 0));
         assert!(has_nonzero, "flip move table should have nonzero entries");
     }
 

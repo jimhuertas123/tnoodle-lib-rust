@@ -73,7 +73,13 @@ fn rotate_face_cw<T: Copy>(grid: &mut Vec<Vec<T>>, count: usize) {
 /// `face`  : the face being turned (R=0..B=5)
 /// `slice` : 0 = outermost layer of that face, 1 = next layer inward, ...
 /// `dir`   : 1 = CW (90), 2 = 180, 3 = CCW (270)
-pub(crate) fn apply_slice<T: Copy>(image: &mut [Vec<Vec<T>>], size: usize, face: u8, slice: usize, dir: usize) {
+pub(crate) fn apply_slice<T: Copy>(
+    image: &mut [Vec<Vec<T>>],
+    size: usize,
+    face: u8,
+    slice: usize,
+    dir: usize,
+) {
     // Save originals before canonicalization (Java uses originals for face rotation)
     let orig_face = face;
     let orig_slice = slice;
@@ -124,8 +130,8 @@ fn single_slice_cw<T: Copy>(image: &mut [Vec<Vec<T>>], size: usize, face: u8, sl
         L_FACE => {
             for j in 0..n {
                 let tmp = image[1][j][s]; // U
-                image[1][j][s] = image[5][n-1-j][n-1-s]; // U = B
-                image[5][n-1-j][n-1-s] = image[4][j][s]; // B = D
+                image[1][j][s] = image[5][n - 1 - j][n - 1 - s]; // U = B
+                image[5][n - 1 - j][n - 1 - s] = image[4][j][s]; // B = D
                 image[4][j][s] = image[2][j][s]; // D = F
                 image[2][j][s] = tmp; // F = old U
             }
@@ -145,10 +151,10 @@ fn single_slice_cw<T: Copy>(image: &mut [Vec<Vec<T>>], size: usize, face: u8, sl
         B_FACE => {
             for j in 0..n {
                 let tmp = image[1][s][j]; // U
-                image[1][s][j] = image[0][j][n-1-s]; // U = R
-                image[0][j][n-1-s] = image[4][n-1-s][n-1-j]; // R = D
-                image[4][n-1-s][n-1-j] = image[3][n-1-j][s]; // D = L
-                image[3][n-1-j][s] = tmp; // L = old U
+                image[1][s][j] = image[0][j][n - 1 - s]; // U = R
+                image[0][j][n - 1 - s] = image[4][n - 1 - s][n - 1 - j]; // R = D
+                image[4][n - 1 - s][n - 1 - j] = image[3][n - 1 - j][s]; // D = L
+                image[3][n - 1 - j][s] = tmp; // L = old U
             }
         }
         _ => {}
@@ -376,7 +382,10 @@ mod tests {
     #[test]
     fn solved_cube_facelets() {
         let facelets = cube_state_to_facelets("");
-        assert_eq!(facelets, "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
+        assert_eq!(
+            facelets,
+            "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
+        );
     }
 
     /// Cross-check our move application against the min2phase solver's
@@ -385,42 +394,60 @@ mod tests {
     fn verify_r_against_min2phase() {
         let ours = cube_state_to_facelets("R");
         let theirs = tnoodle_min2phase::tools::from_scramble("R");
-        assert_eq!(ours, theirs, "R move mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "R move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn verify_u_against_min2phase() {
         let ours = cube_state_to_facelets("U");
         let theirs = tnoodle_min2phase::tools::from_scramble("U");
-        assert_eq!(ours, theirs, "U move mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "U move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn verify_f_against_min2phase() {
         let ours = cube_state_to_facelets("F");
         let theirs = tnoodle_min2phase::tools::from_scramble("F");
-        assert_eq!(ours, theirs, "F move mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "F move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn verify_d_against_min2phase() {
         let ours = cube_state_to_facelets("D");
         let theirs = tnoodle_min2phase::tools::from_scramble("D");
-        assert_eq!(ours, theirs, "D move mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "D move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn verify_l_against_min2phase() {
         let ours = cube_state_to_facelets("L");
         let theirs = tnoodle_min2phase::tools::from_scramble("L");
-        assert_eq!(ours, theirs, "L move mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "L move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn verify_b_against_min2phase() {
         let ours = cube_state_to_facelets("B");
         let theirs = tnoodle_min2phase::tools::from_scramble("B");
-        assert_eq!(ours, theirs, "B move mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "B move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
@@ -428,7 +455,10 @@ mod tests {
         for mv in ["R'", "U'", "F'", "D'", "L'", "B'"] {
             let ours = cube_state_to_facelets(mv);
             let theirs = tnoodle_min2phase::tools::from_scramble(mv);
-            assert_eq!(ours, theirs, "{mv} mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+            assert_eq!(
+                ours, theirs,
+                "{mv} mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+            );
         }
     }
 
@@ -437,7 +467,10 @@ mod tests {
         for mv in ["R2", "U2", "F2", "D2", "L2", "B2"] {
             let ours = cube_state_to_facelets(mv);
             let theirs = tnoodle_min2phase::tools::from_scramble(mv);
-            assert_eq!(ours, theirs, "{mv} mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+            assert_eq!(
+                ours, theirs,
+                "{mv} mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+            );
         }
     }
 
@@ -445,21 +478,30 @@ mod tests {
     fn verify_sequence_r_u_against_min2phase() {
         let ours = cube_state_to_facelets("R U");
         let theirs = tnoodle_min2phase::tools::from_scramble("R U");
-        assert_eq!(ours, theirs, "R U mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "R U mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn verify_sequence_r_u_r_prime_against_min2phase() {
         let ours = cube_state_to_facelets("R U R'");
         let theirs = tnoodle_min2phase::tools::from_scramble("R U R'");
-        assert_eq!(ours, theirs, "R U R' mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "R U R' mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn verify_sexy_move_against_min2phase() {
         let ours = cube_state_to_facelets("R U R' U'");
         let theirs = tnoodle_min2phase::tools::from_scramble("R U R' U'");
-        assert_eq!(ours, theirs, "sexy move mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "sexy move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
@@ -467,7 +509,10 @@ mod tests {
         let scramble = "R U R' F2 D B' L U2 R D' F L2 B2 U R2 D2 L' F B";
         let ours = cube_state_to_facelets(scramble);
         let theirs = tnoodle_min2phase::tools::from_scramble(scramble);
-        assert_eq!(ours, theirs, "long scramble mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "long scramble mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
@@ -476,14 +521,19 @@ mod tests {
         let scramble = "R U R' U' R' F R2 U' R' U' R U R' F'";
         let ours = cube_state_to_facelets(scramble);
         let theirs = tnoodle_min2phase::tools::from_scramble(scramble);
-        assert_eq!(ours, theirs, "T-perm mismatch:\n  ours:   {ours}\n  theirs: {theirs}");
+        assert_eq!(
+            ours, theirs,
+            "T-perm mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
+        );
     }
 
     #[test]
     fn four_r_moves_return_to_solved() {
         let facelets = cube_state_to_facelets("R R R R");
-        assert_eq!(facelets, "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
-            "4x R should return to solved");
+        assert_eq!(
+            facelets, "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB",
+            "4x R should return to solved"
+        );
     }
 
     #[test]
@@ -502,9 +552,15 @@ mod tests {
         let solved_svg = render_cube_svg(3, "");
         let scrambled_svg = render_cube_svg(3, "R");
         // After an R move the SVG must differ from solved
-        assert_ne!(solved_svg, scrambled_svg, "R move should change the cube state");
+        assert_ne!(
+            solved_svg, scrambled_svg,
+            "R move should change the cube state"
+        );
         // The R face should still have red on it (R face rotates but stays red)
-        assert!(scrambled_svg.contains("#ec0000"), "R face should still show red");
+        assert!(
+            scrambled_svg.contains("#ec0000"),
+            "R face should still show red"
+        );
     }
 
     #[test]
@@ -516,10 +572,7 @@ mod tests {
             "SVG should start with <svg, got: {}",
             &trimmed[..40.min(trimmed.len())]
         );
-        assert!(
-            trimmed.ends_with("</svg>"),
-            "SVG should end with </svg>"
-        );
+        assert!(trimmed.ends_with("</svg>"), "SVG should end with </svg>");
     }
 
     #[test]
@@ -578,7 +631,9 @@ mod tests {
 
     #[test]
     fn four_of_any_move_returns_to_solved_4x4() {
-        for mv in ["R", "U", "F", "D", "L", "B", "Rw", "Uw", "Fw", "Dw", "Lw", "Bw"] {
+        for mv in [
+            "R", "U", "F", "D", "L", "B", "Rw", "Uw", "Fw", "Dw", "Lw", "Bw",
+        ] {
             let scramble = format!("{mv} {mv} {mv} {mv}");
             let img = cube_image(4, &scramble);
             assert!(is_solved(&img, 4), "4x {mv} on 4x4 should return to solved");
@@ -596,11 +651,23 @@ mod tests {
 
     #[test]
     fn move_and_inverse_cancel_4x4() {
-        for (mv, inv) in [("R","R'"),("U","U'"),("F","F'"),("D","D'"),("L","L'"),("B","B'"),
-                          ("Rw","Rw'"),("Uw","Uw'"),("Fw","Fw'")] {
+        for (mv, inv) in [
+            ("R", "R'"),
+            ("U", "U'"),
+            ("F", "F'"),
+            ("D", "D'"),
+            ("L", "L'"),
+            ("B", "B'"),
+            ("Rw", "Rw'"),
+            ("Uw", "Uw'"),
+            ("Fw", "Fw'"),
+        ] {
             let scramble = format!("{mv} {inv}");
             let img = cube_image(4, &scramble);
-            assert!(is_solved(&img, 4), "{mv} {inv} on 4x4 should cancel to solved");
+            assert!(
+                is_solved(&img, 4),
+                "{mv} {inv} on 4x4 should cancel to solved"
+            );
         }
     }
 
@@ -609,7 +676,10 @@ mod tests {
         for mv in ["R", "U", "F", "Rw", "Uw"] {
             let two_singles = cube_image(4, &format!("{mv} {mv}"));
             let one_double = cube_image(4, &format!("{mv}2"));
-            assert_eq!(two_singles, one_double, "{mv} {mv} should equal {mv}2 on 4x4");
+            assert_eq!(
+                two_singles, one_double,
+                "{mv} {mv} should equal {mv}2 on 4x4"
+            );
         }
     }
 

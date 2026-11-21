@@ -37,11 +37,19 @@ mod tests {
         for _ in 0..50 {
             let scramble = generate_scramble(&mut rng);
             let moves: Vec<&str> = scramble.split_whitespace().collect();
-            let tips = moves.iter().filter(|m| m.starts_with(char::is_lowercase)).count();
+            let tips = moves
+                .iter()
+                .filter(|m| m.starts_with(char::is_lowercase))
+                .count();
             assert_eq!(moves.len() - tips, SCRAMBLE_LENGTH, "{scramble}");
             assert!(tips <= 4, "{scramble}");
             // Tips come last.
-            assert!(moves[SCRAMBLE_LENGTH..].iter().all(|m| m.starts_with(char::is_lowercase)), "{scramble}");
+            assert!(
+                moves[SCRAMBLE_LENGTH..]
+                    .iter()
+                    .all(|m| m.starts_with(char::is_lowercase)),
+                "{scramble}"
+            );
         }
     }
 }

@@ -56,8 +56,7 @@ impl State {
 
     /// Whether the perm and twist are consistent (solvable).
     pub fn is_solvable(&self) -> bool {
-        ORI[self.perm % 12]
-            == (self.twist + self.twist / 3 + self.twist / 9 + self.twist / 27) % 3
+        ORI[self.perm % 12] == (self.twist + self.twist / 3 + self.twist / 9 + self.twist / 27) % 3
     }
 }
 
@@ -299,8 +298,7 @@ fn ida_search(
         for a in 0..2 {
             p = tables.perm_mv[p][mv];
             s = tables.twist_mv[s][mv];
-            let result =
-                ida_search(tables, depth + 1, p, s, max_left - 1, mv as isize, sol, rng);
+            let result = ida_search(tables, depth + 1, p, s, max_left - 1, mv as isize, sol, rng);
             if result != -1 {
                 sol[depth] = mv * 2 + a;
                 return result;
@@ -366,7 +364,16 @@ pub fn solve(state: State, max_depth: usize) -> Option<String> {
     let max_depth = max_depth.min(MAX_LENGTH);
 
     for length in 0..=max_depth {
-        let result = ida_search(tables, 0, state.perm, state.twist, length, -1, &mut sol, &mut rng);
+        let result = ida_search(
+            tables,
+            0,
+            state.perm,
+            state.twist,
+            length,
+            -1,
+            &mut sol,
+            &mut rng,
+        );
         if result != -1 {
             let solution_length = result as usize;
             if solution_length == 0 {
@@ -386,7 +393,16 @@ pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let mut sol = [0usize; MAX_LENGTH];
     let length = length.min(MAX_LENGTH);
 
-    let result = ida_search(tables, 0, state.perm, state.twist, length, -1, &mut sol, &mut rng);
+    let result = ida_search(
+        tables,
+        0,
+        state.perm,
+        state.twist,
+        length,
+        -1,
+        &mut sol,
+        &mut rng,
+    );
     if result == -1 {
         return None;
     }
@@ -396,7 +412,10 @@ pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let scramble: Vec<String> = solution
         .split_whitespace()
         .rev()
-        .map(|m| m.strip_suffix('\'').map_or_else(|| format!("{m}'"), str::to_string))
+        .map(|m| {
+            m.strip_suffix('\'')
+                .map_or_else(|| format!("{m}'"), str::to_string)
+        })
         .collect();
     Some(scramble.join(" "))
 }

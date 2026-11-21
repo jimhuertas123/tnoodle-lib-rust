@@ -209,8 +209,7 @@ impl SquareTables {
                 let ml: usize = i & 1;
 
                 // --- Try twist ---
-                let twist_idx =
-                    (twist_move[perm] as usize) << 1 | (1 - ml);
+                let twist_idx = (twist_move[perm] as usize) << 1 | (1 - ml);
                 if square_prun[twist_idx] == check {
                     done += 1;
                     square_prun[if inv { i } else { twist_idx }] = depth as i8;
@@ -387,10 +386,7 @@ mod tests {
         for i in 0..N_PERM as u16 {
             let twisted = t.twist_move[i as usize];
             let double_twisted = t.twist_move[twisted as usize];
-            assert_eq!(
-                i, double_twisted,
-                "twist is not an involution at perm={i}"
-            );
+            assert_eq!(i, double_twisted, "twist is not an involution at perm={i}");
         }
     }
 

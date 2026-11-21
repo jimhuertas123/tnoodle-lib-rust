@@ -27,12 +27,30 @@ pub const EDGE_COLOR: [[usize; 2]; 12] = [
 
 /// Edge facelet map: maps the 24 edge positions to 54-facelet indices.
 pub const EDGE_MAP: [u8; 24] = [
-    moves::F2, moves::L2, moves::B2, moves::R2,
-    moves::B8, moves::L8, moves::F8, moves::R8,
-    moves::F4, moves::B6, moves::B4, moves::F6,
-    moves::U8, moves::U4, moves::U2, moves::U6,
-    moves::D8, moves::D4, moves::D2, moves::D6,
-    moves::L6, moves::L4, moves::R6, moves::R4,
+    moves::F2,
+    moves::L2,
+    moves::B2,
+    moves::R2,
+    moves::B8,
+    moves::L8,
+    moves::F8,
+    moves::R8,
+    moves::F4,
+    moves::B6,
+    moves::B4,
+    moves::F6,
+    moves::U8,
+    moves::U4,
+    moves::U2,
+    moves::U6,
+    moves::D8,
+    moves::D4,
+    moves::D2,
+    moves::D6,
+    moves::L6,
+    moves::L4,
+    moves::R6,
+    moves::R4,
 ];
 
 /// 4×4×4 edge cube state: 24 edge positions, each storing a value 0..23.

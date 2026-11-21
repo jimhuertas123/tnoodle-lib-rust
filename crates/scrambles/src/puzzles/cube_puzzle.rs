@@ -84,7 +84,11 @@ fn slice_perm(size: usize, face: u8, dir: usize, inner_slice: usize) -> Perm {
     let mut image: Vec<Vec<Vec<u16>>> = (0..NUM_FACES)
         .map(|f| {
             (0..size)
-                .map(|r| (0..size).map(|c| sticker_index(size, f, r, c) as u16).collect())
+                .map(|r| {
+                    (0..size)
+                        .map(|c| sticker_index(size, f, r, c) as u16)
+                        .collect()
+                })
                 .collect()
         })
         .collect();
@@ -106,8 +110,7 @@ impl CubeTables {
             for face in 0..NUM_FACES as u8 {
                 let half_of_even_cube = size % 2 == 0 && inner_slice == size / 2 - 1;
                 // Skip turning the other halves of even sized cubes.
-                let scramble_move =
-                    inner_slice < size / 2 && !(face >= 3 && half_of_even_cube);
+                let scramble_move = inner_slice < size / 2 && !(face >= 3 && half_of_even_cube);
                 for dir in 1..=3 {
                     let Some(name) = move_name(size, face, dir, inner_slice) else {
                         continue;
@@ -144,7 +147,12 @@ impl CubeTables {
         }
         debug_assert_eq!(rotations.len(), 24);
 
-        Self { moves, by_name, scramble_moves, rotations }
+        Self {
+            moves,
+            by_name,
+            scramble_moves,
+            rotations,
+        }
     }
 }
 
@@ -288,13 +296,24 @@ impl CubePuzzle {
     /// layers. Port of Java's `getRandomOrientationMoves`.
     pub fn random_orientation_moves(&self, thickness: usize) -> Vec<Vec<String>> {
         let name = |face, dir| move_name(self.size, face, dir, thickness).expect("named move");
-        let u_face_moves = [None, Some((R, 1)), Some((R, 2)), Some((R, 3)), Some((F, 1)), Some((F, 3))];
+        let u_face_moves = [
+            None,
+            Some((R, 1)),
+            Some((R, 2)),
+            Some((R, 3)),
+            Some((F, 1)),
+            Some((F, 3)),
+        ];
         let f_face_moves = [None, Some((U, 1)), Some((U, 2)), Some((U, 3))];
         let mut orientations = Vec::with_capacity(24);
         for u in u_face_moves {
             for f in f_face_moves {
                 orientations.push(
-                    [u, f].into_iter().flatten().map(|(face, dir)| name(face, dir)).collect(),
+                    [u, f]
+                        .into_iter()
+                        .flatten()
+                        .map(|(face, dir)| name(face, dir))
+                        .collect(),
                 );
             }
         }
@@ -314,7 +333,8 @@ impl CubePuzzle {
             return psag;
         };
         let mut ab = AlgorithmBuilder::new(MergingMode::NoMerging, self.solved_state());
-        ab.append_algorithm(&psag.generator).expect("generated scramble is valid");
+        ab.append_algorithm(&psag.generator)
+            .expect("generated scramble is valid");
         if discard_redundant_moves {
             while ab.is_redundant(first) {
                 let index = ab
@@ -391,12 +411,18 @@ mod tests {
         // Port of AlgorithmBuilderTest.testRedundantMoves (first half).
         let sixes = CubeState::solved(6).scramble_successors();
         for mv in ["3Bw", "3Lw", "3Dw", "x"] {
-            assert!(sixes.keys().all(|m| !m.starts_with(mv)), "{mv} offered on 6x6");
+            assert!(
+                sixes.keys().all(|m| !m.starts_with(mv)),
+                "{mv} offered on 6x6"
+            );
         }
         assert!(sixes.contains_key("3Rw2"));
         let fours = CubeState::solved(4).scramble_successors();
         for mv in ["Lw", "Dw", "Bw"] {
-            assert!(fours.keys().all(|m| !m.starts_with(mv)), "{mv} offered on 4x4");
+            assert!(
+                fours.keys().all(|m| !m.starts_with(mv)),
+                "{mv} offered on 4x4"
+            );
         }
         assert_eq!(fours.len(), 6 * 3 + 3 * 3);
     }
@@ -405,8 +431,10 @@ mod tests {
     fn canonical_moves_match_java() {
         // From NoInspectionThreeByThreeTest / ThreeByThreeCubeFewestMovesTest.
         let names = |size| {
-            let mut v: Vec<String> =
-                CubeState::solved(size).canonical_moves_by_state().into_values().collect();
+            let mut v: Vec<String> = CubeState::solved(size)
+                .canonical_moves_by_state()
+                .into_values()
+                .collect();
             v.sort();
             v
         };
@@ -427,7 +455,9 @@ mod tests {
         for size in 2..=7 {
             let solved = CubeState::solved(size);
             for (name, _) in &tables(size).moves {
-                let state = solved.apply_algorithm(&format!("{name} {name} {name} {name}")).unwrap();
+                let state = solved
+                    .apply_algorithm(&format!("{name} {name} {name} {name}"))
+                    .unwrap();
                 assert_eq!(state, solved, "{name} on {size}x{size}");
             }
         }
@@ -438,11 +468,22 @@ mod tests {
         // Port of HugeScrambleTest.testCubeNormalization.
         let solved = CubeState::solved(4);
         let normalized_solved = solved.get_normalized();
-        assert_eq!(solved.apply_algorithm("Rw Lw'").unwrap().get_normalized(), normalized_solved);
-        assert_eq!(solved.apply_algorithm("Uw Dw'").unwrap().get_normalized(), normalized_solved);
+        assert_eq!(
+            solved.apply_algorithm("Rw Lw'").unwrap().get_normalized(),
+            normalized_solved
+        );
+        assert_eq!(
+            solved.apply_algorithm("Uw Dw'").unwrap().get_normalized(),
+            normalized_solved
+        );
 
         let threes = CubeState::solved(3);
-        assert!(threes.apply("B").unwrap().equals_normalized(&threes.apply("Fw").unwrap()));
+        assert!(
+            threes
+                .apply("B")
+                .unwrap()
+                .equals_normalized(&threes.apply("Fw").unwrap())
+        );
 
         let mut rng = rand::rng();
         let mut state = solved;
@@ -473,7 +514,9 @@ mod tests {
         let apply = |alg: &str| {
             let mut ab = AlgorithmBuilder::new(MergingMode::NoMerging, fives.solved_state());
             ab.append_algorithm(alg).unwrap();
-            fives.apply_orientation(&reorient, ab.into_state_and_generator(), true).generator
+            fives
+                .apply_orientation(&reorient, ab.into_state_and_generator(), true)
+                .generator
         };
         assert_eq!(apply("F R"), "F R 4Uw");
         assert_eq!(apply("F D"), "F 4Uw");

@@ -1,9 +1,8 @@
-/// Random cube generation and utility functions.
-/// Port of cs.min2phase.Tools
-
-use rand::Rng;
 use crate::cubie_cube::CubieCube;
 use crate::util;
+/// Random cube generation and utility functions.
+/// Port of cs.min2phase.Tools
+use rand::Rng;
 
 /// Generate a uniformly random solvable cube state.
 pub fn random_cube(rng: &mut impl Rng) -> CubieCube {
@@ -59,7 +58,9 @@ pub fn from_scramble(scramble: &str) -> String {
 /// Parse a move string like "R", "R2", "R'" into a move index (0-17).
 fn parse_move(s: &str) -> Option<usize> {
     let s = s.trim();
-    if s.is_empty() { return None; }
+    if s.is_empty() {
+        return None;
+    }
 
     let face_idx = match s.chars().next()? {
         'U' => 0,
@@ -158,7 +159,10 @@ mod tests {
                 seen[usize::from(e >> 1)][position] = true;
             }
         }
-        assert!(seen.iter().flatten().all(|&s| s), "some edge never reached some position");
+        assert!(
+            seen.iter().flatten().all(|&s| s),
+            "some edge never reached some position"
+        );
     }
 
     #[test]
@@ -169,7 +173,10 @@ mod tests {
         let solved = parse_facelets(&from_scramble("")).unwrap();
         assert_eq!(parse_facelets(rotated).unwrap(), solved);
         let letters = from_scramble("R U").replace('U', "w").replace('D', "y");
-        assert_eq!(parse_facelets(&letters).unwrap(), parse_facelets(&from_scramble("R U")).unwrap());
+        assert_eq!(
+            parse_facelets(&letters).unwrap(),
+            parse_facelets(&from_scramble("R U")).unwrap()
+        );
         assert_eq!(verify("U"), -1);
     }
 

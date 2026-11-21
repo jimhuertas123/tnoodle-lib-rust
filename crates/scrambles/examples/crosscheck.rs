@@ -11,10 +11,15 @@
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use tnoodle_min2phase::{search::{Search as TwoPhase, SearchResult}, tools};
+use tnoodle_min2phase::{
+    search::{Search as TwoPhase, SearchResult},
+    tools,
+};
 use tnoodle_scrambles::puzzles::cube_puzzle::{CubePuzzle, CubeState};
 use tnoodle_scrambles::puzzles::cube_svg;
-use tnoodle_scrambles::{AlgorithmBuilder, MergingMode, Puzzle, PuzzleState, PuzzleType, generate_scramble};
+use tnoodle_scrambles::{
+    AlgorithmBuilder, MergingMode, Puzzle, PuzzleState, PuzzleType, generate_scramble,
+};
 use tnoodle_solvers::{pyraminx, skewb, two_by_two};
 use tnoodle_sq12phase::full_cube::FullCube;
 use tnoodle_sq12phase::search::{INVERSE_SOLUTION, Search as Sq1Search};
@@ -129,7 +134,10 @@ fn main() {
         let s = two_by_two::random_state(&mut rng);
         let solve = or_none(two_by_two::solve(s, 11));
         let exact = or_none(two_by_two::generate_exactly(s, 11));
-        println!("222\t{}\t{}\t{solve}\t{exact}", s.permutation, s.orientation);
+        println!(
+            "222\t{}\t{}\t{solve}\t{exact}",
+            s.permutation, s.orientation
+        );
     }
     for _ in 0..100 * scale {
         let s = skewb::random_state(&mut rng);
@@ -151,20 +159,28 @@ fn main() {
     // on states close to solved.
     let mut sq1 = Sq1Search::new();
     for i in 0..60 * scale {
-        let c = if i % 2 == 0 { FullCube::random_cube(&mut rng) } else { near_solved_sq1(&mut rng) };
+        let c = if i % 2 == 0 {
+            FullCube::random_cube(&mut rng)
+        } else {
+            near_solved_sq1(&mut rng)
+        };
         let solution = or_none(sq1.solution_with_verbose(&c, INVERSE_SOLUTION));
         let optimal = or_none(sq1.solution_opt_with_verbose(&c, 10, INVERSE_SOLUTION));
-        println!("sq1\t{}\t{}\t{}\t{}\t{}\t{solution}\t{optimal}", c.ul, c.ur, c.dl, c.dr, c.ml);
+        println!(
+            "sq1\t{}\t{}\t{}\t{}\t{}\t{solution}\t{optimal}",
+            c.ul, c.ur, c.dl, c.dr, c.ml
+        );
     }
 
     // min2phase: the same facelets go to both solvers.
     let mut two_phase = TwoPhase::new();
     for _ in 0..100 * scale {
         let facelets = tools::random_state(&mut rng);
-        let scramble = match two_phase.solution(&facelets, 21, 1_000_000, 0, INVERSE_SOLUTION as u32) {
-            SearchResult::Solution(s) => s,
-            other => format!("ERR {other:?}"),
-        };
+        let scramble =
+            match two_phase.solution(&facelets, 21, 1_000_000, 0, INVERSE_SOLUTION as u32) {
+                SearchResult::Solution(s) => s,
+                other => format!("ERR {other:?}"),
+            };
         println!("333solve\t{facelets}\t{}", scramble.trim());
     }
 

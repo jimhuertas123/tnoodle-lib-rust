@@ -6,8 +6,8 @@
 
 use rand::Rng;
 
-use crate::center1;
 use crate::center_cube::CenterCube;
+use crate::center1;
 use crate::corner_cube::CornerCube;
 use crate::edge_cube::EdgeCube;
 use crate::moves;
@@ -30,12 +30,30 @@ pub const CENTER_FACELET: [u8; 24] = [
 
 /// Edge facelet indices: each edge has 2 sub-facelets.
 const EDGE_FACELET: [[u8; 2]; 24] = [
-    [FUD, FF1], [FU4, FL1], [FU2, FB1], [FUB, FR1],
-    [FDD, FBE], [FD4, FLE], [FD2, FFE], [FDB, FRE],
-    [FLB, FF8], [FL4, FB7], [FRB, FB8], [FR4, FF7],
-    [FF2, FUE], [FL2, FU8], [FB2, FU1], [FR2, FU7],
-    [FBD, FDE], [FLD, FD8], [FFD, FD1], [FRD, FD7],
-    [FF4, FL7], [FBB, FL8], [FB4, FR7], [FFB, FR8],
+    [FUD, FF1],
+    [FU4, FL1],
+    [FU2, FB1],
+    [FUB, FR1],
+    [FDD, FBE],
+    [FD4, FLE],
+    [FD2, FFE],
+    [FDB, FRE],
+    [FLB, FF8],
+    [FL4, FB7],
+    [FRB, FB8],
+    [FR4, FF7],
+    [FF2, FUE],
+    [FL2, FU8],
+    [FB2, FU1],
+    [FR2, FU7],
+    [FBD, FDE],
+    [FLD, FD8],
+    [FFD, FD1],
+    [FRD, FD7],
+    [FF4, FL7],
+    [FBB, FL8],
+    [FB4, FR7],
+    [FFB, FR8],
 ];
 
 /// Corner facelet indices: each corner has 3 sub-facelets.
@@ -294,8 +312,7 @@ impl FullCube {
             let j = self.corner.cp[c as usize] as usize;
             let ori = self.corner.co[c as usize] as usize;
             for n in 0..3usize {
-                f[CORNER_FACELET[c as usize][(n + ori) % 3] as usize] =
-                    CORNER_FACELET[j][n] / 16;
+                f[CORNER_FACELET[c as usize][(n + ori) % 3] as usize] = CORNER_FACELET[j][n] / 16;
             }
         }
     }

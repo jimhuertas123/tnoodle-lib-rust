@@ -216,37 +216,19 @@ impl Search {
         for len1 in min_prun..100 {
             self.length1 = len1;
             if rl_prun as i32 <= len1
-                && self.search1(
-                    (rl >> 6) as usize,
-                    (rl & 0x3f) as usize,
-                    len1,
-                    -1,
-                    0,
-                )
+                && self.search1((rl >> 6) as usize, (rl & 0x3f) as usize, len1, -1, 0)
             {
                 found = true;
                 break;
             }
             if ud_prun as i32 <= len1
-                && self.search1(
-                    (ud >> 6) as usize,
-                    (ud & 0x3f) as usize,
-                    len1,
-                    -1,
-                    0,
-                )
+                && self.search1((ud >> 6) as usize, (ud & 0x3f) as usize, len1, -1, 0)
             {
                 found = true;
                 break;
             }
             if fb_prun as i32 <= len1
-                && self.search1(
-                    (fb >> 6) as usize,
-                    (fb & 0x3f) as usize,
-                    len1,
-                    -1,
-                    0,
-                )
+                && self.search1((fb >> 6) as usize, (fb & 0x3f) as usize, len1, -1, 0)
             {
                 found = true;
                 break;
@@ -254,11 +236,7 @@ impl Search {
         }
 
         // Collect phase-1 solutions, sort by value
-        let mut p1_sols_arr: Vec<FullCube> = self
-            .p1_sols
-            .drain()
-            .map(|e| e.cube)
-            .collect();
+        let mut p1_sols_arr: Vec<FullCube> = self.p1_sols.drain().map(|e| e.cube).collect();
         p1_sols_arr.sort_by_key(|c| c.value);
 
         if p1_sols_arr.is_empty() {
@@ -310,9 +288,7 @@ impl Search {
 
         // Sort phase-2 results
         let mut arr2_sorted: Vec<usize> = (0..self.arr2_idx).collect();
-        arr2_sorted.sort_by_key(|&i| {
-            self.arr2[i].as_ref().map(|c| c.value).unwrap_or(i32::MAX)
-        });
+        arr2_sorted.sort_by_key(|&i| self.arr2[i].as_ref().map(|c| c.value).unwrap_or(i32::MAX));
 
         if arr2_sorted.is_empty() {
             self.solution = "Error: no phase-2 solution".to_string();
@@ -352,7 +328,8 @@ impl Search {
                     let eparity = self.e12.set_edge_cube(&edge_snap);
                     let corner_parity = self.arr2[idx].as_mut().unwrap().get_corner().get_parity();
                     let center_snap2 = self.arr2[idx].as_mut().unwrap().get_center().clone();
-                    self.ct3.set_from_cube(&center_snap2, eparity ^ corner_parity);
+                    self.ct3
+                        .set_from_cube(&center_snap2, eparity ^ corner_parity);
                     let ct3_tables_ref = &*crate::center3::TABLES;
                     let ct = self.ct3.getct(&ct3_tables_ref.std2rl);
                     let edge_coord = self.e12.get(10);
@@ -364,14 +341,7 @@ impl Search {
                         let ct3_tables = &*crate::center3::TABLES;
                         let ct3_prun = ct3_tables.prun[ct as usize];
                         if ct3_prun as i32 <= remaining
-                            && self.search3(
-                                edge_coord,
-                                ct as usize,
-                                prun,
-                                remaining,
-                                lm,
-                                0,
-                            )
+                            && self.search3(edge_coord, ct as usize, prun, remaining, lm, 0)
                         {
                             best_index = idx;
                             length123 = l123;
@@ -429,14 +399,7 @@ impl Search {
 
     // ── Phase 1 search ──
 
-    fn search1(
-        &mut self,
-        ct: usize,
-        sym: usize,
-        maxl: i32,
-        lm: i32,
-        depth: usize,
-    ) -> bool {
+    fn search1(&mut self, ct: usize, sym: usize, maxl: i32, lm: i32, depth: usize) -> bool {
         let c1_tables = &*center1::TABLES;
 
         if ct == 0 && maxl < 5 {
@@ -548,14 +511,7 @@ impl Search {
 
     // ── Phase 2 search ──
 
-    fn search2(
-        &mut self,
-        ct: i32,
-        rl: i32,
-        maxl: i32,
-        lm: usize,
-        depth: usize,
-    ) -> bool {
+    fn search2(&mut self, ct: i32, rl: i32, maxl: i32, lm: usize, depth: usize) -> bool {
         let c2_tables = &*crate::center2::TABLES;
 
         if ct == 0 && c2_tables.ctprun[rl as usize] == 0 && maxl == 0 {
@@ -606,7 +562,8 @@ impl Search {
         let eparity = self.e12.set_edge_cube(&edge_snap);
         let corner_parity = self.c2.get_corner().get_parity();
         let center_snap = self.c2.get_center().clone();
-        self.ct3.set_from_cube(&center_snap, eparity ^ corner_parity);
+        self.ct3
+            .set_from_cube(&center_snap, eparity ^ corner_parity);
         let ct3_tables_init3 = &*crate::center3::TABLES;
         let ct = self.ct3.getct(&ct3_tables_init3.std2rl);
         let prun = edge3::getprun_full(self.e12.getsym());
@@ -616,7 +573,10 @@ impl Search {
         if self.arr2[self.arr2_idx].is_none() {
             self.arr2[self.arr2_idx] = Some(self.c2.clone_cube());
         } else {
-            self.arr2[self.arr2_idx].as_mut().unwrap().copy_from(&self.c2);
+            self.arr2[self.arr2_idx]
+                .as_mut()
+                .unwrap()
+                .copy_from(&self.c2);
         }
         let cube = self.arr2[self.arr2_idx].as_mut().unwrap();
         cube.value = self.length1 + self.length2 + prun.max(ct3_tables.prun[ct as usize] as i32);
@@ -666,21 +626,14 @@ impl Search {
                 continue;
             }
 
-            let edgex =
-                edge3::getmvrot(&self.tempe[depth].edge, m << 3, 10);
+            let edgex = edge3::getmvrot(&self.tempe[depth].edge, m << 3, 10);
             let cord1x = edgex / (edge3::N_RAW as i32);
             let symcord1x_full = e3_tables.raw2sym[cord1x as usize];
             let symx = (symcord1x_full & 0x7) as usize;
             let symcord1x = (symcord1x_full >> 3) as usize;
-            let cord2x = edge3::getmvrot(
-                &self.tempe[depth].edge,
-                (m << 3) | symx,
-                10,
-            ) % (edge3::N_RAW as i32);
-            let prunx = edge3::getprun(
-                symcord1x * edge3::N_RAW + cord2x as usize,
-                prun,
-            );
+            let cord2x = edge3::getmvrot(&self.tempe[depth].edge, (m << 3) | symx, 10)
+                % (edge3::N_RAW as i32);
+            let prunx = edge3::getprun(symcord1x * edge3::N_RAW + cord2x as usize, prun);
             if prunx >= maxl {
                 if prunx > maxl && m < 14 {
                     m = skip_axis3[m] as usize;
@@ -766,7 +719,12 @@ mod tests {
 
     fn parse_4x4(alg: &str) -> Vec<usize> {
         alg.split_whitespace()
-            .map(|m| MOVE2STR.iter().position(|s| s.trim() == m).unwrap_or_else(|| panic!("bad move {m}")))
+            .map(|m| {
+                MOVE2STR
+                    .iter()
+                    .position(|s| s.trim() == m)
+                    .unwrap_or_else(|| panic!("bad move {m}"))
+            })
             .collect()
     }
 
@@ -799,13 +757,21 @@ mod tests {
         let mut rng = rand::rng();
         let mut search = Search::new();
         for _ in 0..10 {
-            let moves: Vec<usize> = (0..40).map(|_| rand::Rng::random_range(&mut rng, 0..36)).collect();
+            let moves: Vec<usize> = (0..40)
+                .map(|_| rand::Rng::random_range(&mut rng, 0..36))
+                .collect();
             let target = facelets(&mut FullCube::from_moves(&moves));
-            let facelet: String = target.iter().map(|&c| "URFDLB".as_bytes()[c as usize] as char).collect();
+            let facelet: String = target
+                .iter()
+                .map(|&c| "URFDLB".as_bytes()[c as usize] as char)
+                .collect();
             let scramble = search.solution_from_facelet(&facelet);
             assert!(!scramble.starts_with("Error"), "{scramble}");
             let produced = facelets(&mut FullCube::from_moves(&parse_4x4(&scramble)));
-            assert!(orientations(produced).contains(&target), "{scramble} does not reproduce the state");
+            assert!(
+                orientations(produced).contains(&target),
+                "{scramble} does not reproduce the state"
+            );
         }
     }
 

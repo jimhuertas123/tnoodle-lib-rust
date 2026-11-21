@@ -22,8 +22,7 @@ const N_MOVES: usize = 9;
 const MAX_LENGTH: usize = 20;
 
 const MOVE_TO_STRING: [&str; N_MOVES] = ["U", "U2", "U'", "R", "R2", "R'", "F", "F2", "F'"];
-const INVERSE_MOVE_TO_STRING: [&str; N_MOVES] =
-    ["U'", "U2", "U", "R'", "R2", "R", "F'", "F2", "F"];
+const INVERSE_MOVE_TO_STRING: [&str; N_MOVES] = ["U'", "U2", "U", "R'", "R2", "R", "F'", "F2", "F"];
 
 const FACT: [usize; 7] = [1, 1, 2, 6, 24, 120, 720]; // fact[x] = x!
 
@@ -362,7 +361,16 @@ fn search_best(
         let np = tables.move_perm[perm][mv];
         let no = tables.move_orient[orient][mv];
         solution[depth] = mv;
-        found |= search_best(tables, np, no, depth + 1, length - 1, mv, solution, best_solution);
+        found |= search_best(
+            tables,
+            np,
+            no,
+            depth + 1,
+            length - 1,
+            mv,
+            solution,
+            best_solution,
+        );
     }
     found
 }

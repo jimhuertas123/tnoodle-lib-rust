@@ -46,7 +46,10 @@ mod tests {
             let scramble = generate_scramble_555ni(&mut rng);
             let moves: Vec<&str> = scramble.split_whitespace().collect();
             let tail = &moves[moves.len().saturating_sub(2)..];
-            let reoriented = tail.iter().filter(|m| m.starts_with("3") && m.contains('w')).count();
+            let reoriented = tail
+                .iter()
+                .filter(|m| m.starts_with("3") && m.contains('w'))
+                .count();
             assert!(moves.len() <= 62, "{scramble}");
             // 4 of the 24 orientations need no move, the rest end in 3Rw/3Fw/3Uw.
             assert!(reoriented <= 2, "{scramble}");

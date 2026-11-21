@@ -184,9 +184,7 @@ impl FullCube {
         let drx = compress_shape_bits(self.dr);
         let dlx = compress_shape_bits(self.dl);
 
-        shape::get_shape2_idx(
-            self.get_parity() << 24 | ulx << 18 | urx << 12 | dlx << 6 | drx,
-        )
+        shape::get_shape2_idx(self.get_parity() << 24 | ulx << 18 | urx << 12 | dlx << 6 | drx)
     }
 
     /// Compute the parity of the piece permutation.

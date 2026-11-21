@@ -219,15 +219,30 @@ fn three_by_three_states_are_uniformly_random() {
         }
     };
 
-    check("edge orientation".into(), chi_square_p(&expected_edge_orientation(), &flipped_edges));
+    check(
+        "edge orientation".into(),
+        chi_square_p(&expected_edge_orientation(), &flipped_edges),
+    );
     for (edge, counts) in edge_positions.iter().enumerate() {
-        check(format!("edge {edge} final position"), chi_square_p(&[1.0 / 12.0; 12], counts));
+        check(
+            format!("edge {edge} final position"),
+            chi_square_p(&[1.0 / 12.0; 12], counts),
+        );
     }
-    check("corner orientation".into(), chi_square_p(&expected_corner_orientation(), &corner_twist_sums));
+    check(
+        "corner orientation".into(),
+        chi_square_p(&expected_corner_orientation(), &corner_twist_sums),
+    );
     for (corner, counts) in corner_positions.iter().enumerate() {
-        check(format!("corner {corner} final position"), chi_square_p(&[1.0 / 8.0; 8], counts));
+        check(
+            format!("corner {corner} final position"),
+            chi_square_p(&[1.0 / 8.0; 8], counts),
+        );
     }
-    check("permutation parity".into(), fair_coin_p(SCRAMBLE_COUNT, odd_parity));
+    check(
+        "permutation parity".into(),
+        fair_coin_p(SCRAMBLE_COUNT, odd_parity),
+    );
 
     assert!(failures.is_empty(), "not uniformly random: {failures:?}");
 }

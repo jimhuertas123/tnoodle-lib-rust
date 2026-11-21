@@ -237,18 +237,16 @@ pub const EOM: i32 = 36;
 
 /// Human-readable string for each move index 0..35.
 pub const MOVE2STR: [&str; 36] = [
-    "U  ", "U2 ", "U' ", "R  ", "R2 ", "R' ", "F  ", "F2 ", "F' ",
-    "D  ", "D2 ", "D' ", "L  ", "L2 ", "L' ", "B  ", "B2 ", "B' ",
-    "Uw ", "Uw2", "Uw'", "Rw ", "Rw2", "Rw'", "Fw ", "Fw2", "Fw'",
-    "Dw ", "Dw2", "Dw'", "Lw ", "Lw2", "Lw'", "Bw ", "Bw2", "Bw'",
+    "U  ", "U2 ", "U' ", "R  ", "R2 ", "R' ", "F  ", "F2 ", "F' ", "D  ", "D2 ", "D' ", "L  ",
+    "L2 ", "L' ", "B  ", "B2 ", "B' ", "Uw ", "Uw2", "Uw'", "Rw ", "Rw2", "Rw'", "Fw ", "Fw2",
+    "Fw'", "Dw ", "Dw2", "Dw'", "Lw ", "Lw2", "Lw'", "Bw ", "Bw2", "Bw'",
 ];
 
 /// Human-readable string for the *inverse* of each move index 0..35.
 pub const MOVE_ISTR: [&str; 36] = [
-    "U' ", "U2 ", "U  ", "R' ", "R2 ", "R  ", "F' ", "F2 ", "F  ",
-    "D' ", "D2 ", "D  ", "L' ", "L2 ", "L  ", "B' ", "B2 ", "B  ",
-    "Uw'", "Uw2", "Uw ", "Rw'", "Rw2", "Rw ", "Fw'", "Fw2", "Fw ",
-    "Dw'", "Dw2", "Dw ", "Lw'", "Lw2", "Lw ", "Bw'", "Bw2", "Bw ",
+    "U' ", "U2 ", "U  ", "R' ", "R2 ", "R  ", "F' ", "F2 ", "F  ", "D' ", "D2 ", "D  ", "L' ",
+    "L2 ", "L  ", "B' ", "B2 ", "B  ", "Uw'", "Uw2", "Uw ", "Rw'", "Rw2", "Rw ", "Fw'", "Fw2",
+    "Fw ", "Dw'", "Dw2", "Dw ", "Lw'", "Lw2", "Lw ", "Bw'", "Bw2", "Bw ",
 ];
 
 // ---------------------------------------------------------------------------
@@ -257,15 +255,14 @@ pub const MOVE_ISTR: [&str; 36] = [
 
 /// Phase-2 move set (29 entries, terminated by `EOM`).
 pub const MOVE2STD: [i32; 29] = [
-    UX1, UX2, UX3, RX1, RX2, RX3, FX1, FX2, FX3,
-    DX1, DX2, DX3, LX1, LX2, LX3, BX1, BX2, BX3,
-    UWX2, RWX1, RWX2, RWX3, FWX2, DWX2, LWX1, LWX2, LWX3, BWX2, EOM,
+    UX1, UX2, UX3, RX1, RX2, RX3, FX1, FX2, FX3, DX1, DX2, DX3, LX1, LX2, LX3, BX1, BX2, BX3, UWX2,
+    RWX1, RWX2, RWX3, FWX2, DWX2, LWX1, LWX2, LWX3, BWX2, EOM,
 ];
 
 /// Phase-3 move set (21 entries, terminated by `EOM`).
 pub const MOVE3STD: [i32; 21] = [
-    UX1, UX2, UX3, RX2, FX1, FX2, FX3, DX1, DX2, DX3, LX2, BX1, BX2, BX3,
-    UWX2, RWX2, FWX2, DWX2, LWX2, BWX2, EOM,
+    UX1, UX2, UX3, RX2, FX1, FX2, FX3, DX1, DX2, DX3, LX2, BX1, BX2, BX3, UWX2, RWX2, FWX2, DWX2,
+    LWX2, BWX2, EOM,
 ];
 
 /// Maps a standard move index (0..36) back to its position in [`MOVE2STD`].
@@ -463,7 +460,7 @@ mod tests {
         // U (face 0) and D (face 3) are parallel (0%3 == 3%3 == 0)
         // U after D is ok (U < D), but D after U should be skipped (D > U and parallel).
         assert!(!ckmv[UX1 as usize][DX1 as usize]); // U then D => ok
-        assert!(ckmv[DX1 as usize][UX1 as usize]);  // D then U => skip
+        assert!(ckmv[DX1 as usize][UX1 as usize]); // D then U => skip
     }
 
     #[test]

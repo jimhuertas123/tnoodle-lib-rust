@@ -1,12 +1,11 @@
+use crate::coord_cube;
+use crate::util;
 /// CubieCube representation: corners as `ca[8]`, edges as `ea[12]`.
 /// Each corner byte: bits 0-2 = permutation, bits 3-4 = orientation (0-2).
 /// Each edge byte: bit 0 = flip, bits 1+ = permutation.
 ///
 /// Port of cs.min2phase.CubieCube
-
 use std::sync::LazyLock;
-use crate::util;
-use crate::coord_cube;
 
 // ---------------------------------------------------------------------------
 // CubieCube
@@ -45,7 +44,8 @@ impl CubieCube {
         let mut temp_ca = [0u8; 8];
 
         for edge in 0u8..12 {
-            temp_ea[(self.ea[edge as usize] >> 1) as usize] = edge << 1 | (self.ea[edge as usize] & 1);
+            temp_ea[(self.ea[edge as usize] >> 1) as usize] =
+                edge << 1 | (self.ea[edge as usize] & 1);
         }
         for corn in 0u8..8 {
             let ci = self.ca[corn as usize];
@@ -172,8 +172,12 @@ impl CubieCube {
             edge_mask |= 1 << (self.ea[e] >> 1);
             sum ^= (self.ea[e] & 1) as i32;
         }
-        if edge_mask != 0xfff { return -2; }
-        if sum != 0 { return -3; }
+        if edge_mask != 0xfff {
+            return -2;
+        }
+        if sum != 0 {
+            return -3;
+        }
 
         let mut corn_mask = 0u32;
         sum = 0;
@@ -181,9 +185,15 @@ impl CubieCube {
             corn_mask |= 1 << (self.ca[c] & 7);
             sum += (self.ca[c] >> 3) as i32;
         }
-        if corn_mask != 0xff { return -4; }
-        if sum % 3 != 0 { return -5; }
-        if (self.get_edge_parity_bit() ^ self.get_corner_parity_bit()) != 0 { return -6; }
+        if corn_mask != 0xff {
+            return -4;
+        }
+        if sum % 3 != 0 {
+            return -5;
+        }
+        if (self.get_edge_parity_bit() ^ self.get_corner_parity_bit()) != 0 {
+            return -6;
+        }
         0
     }
 }
@@ -229,8 +239,11 @@ pub fn corn_conjugate(a: &CubieCube, idx: usize, b: &mut CubieCube) {
 
 /// b = S_idx^-1 * a * S_idx, corners only. Takes explicit table references.
 pub fn corn_conjugate_with(
-    a: &CubieCube, idx: usize, b: &mut CubieCube,
-    cube_sym: &[CubieCube; 16], sym_mult_inv: &[[usize; 16]; 16],
+    a: &CubieCube,
+    idx: usize,
+    b: &mut CubieCube,
+    cube_sym: &[CubieCube; 16],
+    sym_mult_inv: &[[usize; 16]; 16],
 ) {
     let sinv = &cube_sym[sym_mult_inv[0][idx]];
     let s = &cube_sym[idx];
@@ -252,8 +265,11 @@ pub fn edge_conjugate(a: &CubieCube, idx: usize, b: &mut CubieCube) {
 
 /// b = S_idx^-1 * a * S_idx, edges only. Takes explicit table references.
 pub fn edge_conjugate_with(
-    a: &CubieCube, idx: usize, b: &mut CubieCube,
-    cube_sym: &[CubieCube; 16], sym_mult_inv: &[[usize; 16]; 16],
+    a: &CubieCube,
+    idx: usize,
+    b: &mut CubieCube,
+    cube_sym: &[CubieCube; 16],
+    sym_mult_inv: &[[usize; 16]; 16],
 ) {
     let sinv = &cube_sym[sym_mult_inv[0][idx]];
     let s = &cube_sym[idx];
@@ -305,18 +321,18 @@ pub struct CubieCubeTables {
     pub sym_move_ud: [[usize; 18]; 16],
 
     // Sym <-> Raw mappings
-    pub flip_s2r: Vec<u16>,    // [N_FLIP_SYM]
-    pub twist_s2r: Vec<u16>,   // [N_TWIST_SYM]
-    pub e_perm_s2r: Vec<u16>,  // [N_PERM_SYM]
-    pub perm2_comb_p: Vec<u8>, // [N_PERM_SYM]
+    pub flip_s2r: Vec<u16>,          // [N_FLIP_SYM]
+    pub twist_s2r: Vec<u16>,         // [N_TWIST_SYM]
+    pub e_perm_s2r: Vec<u16>,        // [N_PERM_SYM]
+    pub perm2_comb_p: Vec<u8>,       // [N_PERM_SYM]
     pub perm_inv_edge_sym: Vec<u16>, // [N_PERM_SYM]
-    pub m_perm_inv: Vec<u8>,   // [N_MPERM]
+    pub m_perm_inv: Vec<u8>,         // [N_MPERM]
 
-    pub flip_r2s: Vec<u16>,    // [N_FLIP]
-    pub twist_r2s: Vec<u16>,   // [N_TWIST]
-    pub e_perm_r2s: Vec<u16>,  // [N_PERM]
+    pub flip_r2s: Vec<u16>,   // [N_FLIP]
+    pub twist_r2s: Vec<u16>,  // [N_TWIST]
+    pub e_perm_r2s: Vec<u16>, // [N_PERM]
 
-    pub flip_s2rf: Vec<u16>,   // [N_FLIP_SYM * 8]
+    pub flip_s2rf: Vec<u16>, // [N_FLIP_SYM * 8]
 
     pub sym_state_twist: Vec<u16>,
     pub sym_state_flip: Vec<u16>,
@@ -324,8 +340,10 @@ pub struct CubieCubeTables {
 }
 
 /// URF conjugation cubes (used in Search).
-static URF1: LazyLock<CubieCube> = LazyLock::new(|| CubieCube::from_coords(2531, 1373, 67026819, 1367));
-static URF2: LazyLock<CubieCube> = LazyLock::new(|| CubieCube::from_coords(2089, 1906, 322752913, 2040));
+static URF1: LazyLock<CubieCube> =
+    LazyLock::new(|| CubieCube::from_coords(2531, 1373, 67026819, 1367));
+static URF2: LazyLock<CubieCube> =
+    LazyLock::new(|| CubieCube::from_coords(2089, 1906, 322752913, 2040));
 
 pub static URF_MOVE: [[u8; 18]; 6] = [
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -446,7 +464,13 @@ impl CubieCubeTables {
         for j in 0..18 {
             for s in 0..16 {
                 let mut conj = CubieCube::new();
-                corn_conjugate_with(&self.move_cube[j], self.sym_mult_inv[0][s], &mut conj, &self.cube_sym, &self.sym_mult_inv);
+                corn_conjugate_with(
+                    &self.move_cube[j],
+                    self.sym_mult_inv[0][s],
+                    &mut conj,
+                    &self.cube_sym,
+                    &self.sym_mult_inv,
+                );
                 for m in 0..18 {
                     if self.move_cube[m].ca == conj.ca {
                         self.sym_move[s][j] = m;
@@ -572,7 +596,11 @@ impl CubieCubeTables {
         let mut flip_r2s = std::mem::take(&mut self.flip_r2s);
         let mut sym_state_flip = std::mem::take(&mut self.sym_state_flip);
         self.init_sym2raw(
-            coord_cube::N_FLIP, &mut flip_s2r, &mut flip_r2s, &mut sym_state_flip, 0,
+            coord_cube::N_FLIP,
+            &mut flip_s2r,
+            &mut flip_r2s,
+            &mut sym_state_flip,
+            0,
         );
         self.flip_s2r = flip_s2r;
         self.flip_r2s = flip_r2s;
@@ -584,7 +612,11 @@ impl CubieCubeTables {
         let mut twist_r2s = std::mem::take(&mut self.twist_r2s);
         let mut sym_state_twist = std::mem::take(&mut self.sym_state_twist);
         self.init_sym2raw(
-            coord_cube::N_TWIST, &mut twist_s2r, &mut twist_r2s, &mut sym_state_twist, 1,
+            coord_cube::N_TWIST,
+            &mut twist_s2r,
+            &mut twist_r2s,
+            &mut sym_state_twist,
+            1,
         );
         self.twist_s2r = twist_s2r;
         self.twist_r2s = twist_r2s;
@@ -596,7 +628,11 @@ impl CubieCubeTables {
         let mut e_perm_r2s = std::mem::take(&mut self.e_perm_r2s);
         let mut sym_state_perm = std::mem::take(&mut self.sym_state_perm);
         self.init_sym2raw(
-            coord_cube::N_PERM, &mut e_perm_s2r, &mut e_perm_r2s, &mut sym_state_perm, 2,
+            coord_cube::N_PERM,
+            &mut e_perm_s2r,
+            &mut e_perm_r2s,
+            &mut sym_state_perm,
+            2,
         );
         self.e_perm_s2r = e_perm_s2r;
         self.e_perm_r2s = e_perm_r2s;
@@ -680,7 +716,11 @@ mod tests {
     fn move_cube_solvable() {
         let tables = &*TABLES;
         for i in 0..18 {
-            assert_eq!(tables.move_cube[i].verify(), 0, "move {i} fails verification");
+            assert_eq!(
+                tables.move_cube[i].verify(),
+                0,
+                "move {i} fails verification"
+            );
         }
     }
 

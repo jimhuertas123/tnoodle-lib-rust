@@ -4,7 +4,10 @@
 //! and `ThreeByThreeCubeFewestMovesPuzzle`.
 
 use rand::Rng;
-use tnoodle_min2phase::{search::{Search, SearchResult}, tools};
+use tnoodle_min2phase::{
+    search::{Search, SearchResult},
+    tools,
+};
 
 use super::cube_puzzle::{CubePuzzle, CubeState};
 use crate::algorithm_builder::{AlgorithmBuilder, MergingMode};
@@ -46,7 +49,8 @@ fn generate_random_moves(
     // Same as Java: canonicalize the solver output so it can never contain
     // redundant moves.
     let mut ab = AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(3));
-    ab.append_algorithm(&scramble).expect("min2phase emits valid moves");
+    ab.append_algorithm(&scramble)
+        .expect("min2phase emits valid moves");
     ab.into_state_and_generator()
 }
 
@@ -111,7 +115,8 @@ mod tests {
             let scramble = generate_scramble_fm(&mut rng);
             assert!(scramble.starts_with("R' U' F "), "{scramble}");
             assert!(scramble.ends_with(" R' U' F"), "{scramble}");
-            let mut ab = AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(3));
+            let mut ab =
+                AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(3));
             ab.append_algorithm(&scramble).unwrap();
             assert_eq!(ab.to_string(), scramble);
         }
@@ -127,7 +132,12 @@ mod tests {
             let wide: Vec<&&str> = moves.iter().filter(|m| m.contains('w')).collect();
             assert!(wide.len() <= 2, "{scramble}");
             // Wide moves only appear as the trailing reorientation.
-            assert!(moves[moves.len() - wide.len()..].iter().all(|m| m.contains('w')), "{scramble}");
+            assert!(
+                moves[moves.len() - wide.len()..]
+                    .iter()
+                    .all(|m| m.contains('w')),
+                "{scramble}"
+            );
             saw_orientation |= !wide.is_empty();
             let state = CubeState::solved(3).apply_algorithm(&scramble).unwrap();
             assert!(!state.equals_normalized(&CubeState::solved(3)));

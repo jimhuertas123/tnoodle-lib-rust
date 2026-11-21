@@ -1,19 +1,19 @@
 //! Concrete puzzle scramble generators for all WCA puzzle types.
 
-pub mod three_by_three;
-pub mod two_by_two;
-pub mod four_by_four;
 pub mod big_cubes;
-pub mod square_one;
-pub mod megaminx;
-pub mod pyraminx;
-pub mod skewb;
 pub mod clock;
 pub mod cube_puzzle;
 pub mod cube_svg;
+pub mod four_by_four;
+pub mod megaminx;
+pub mod pyraminx;
+pub mod skewb;
+pub mod square_one;
+pub mod three_by_three;
+pub mod two_by_two;
 
-use rand::Rng;
 use crate::puzzle_registry::PuzzleType;
+use rand::Rng;
 
 /// Generate a WCA-legal scramble string for the given puzzle type.
 pub fn generate_scramble(puzzle_type: PuzzleType, rng: &mut impl Rng) -> String {
@@ -41,14 +41,13 @@ pub fn generate_scramble(puzzle_type: PuzzleType, rng: &mut impl Rng) -> String 
 pub fn generate_scramble_svg(puzzle_type: PuzzleType, scramble: &str) -> String {
     match puzzle_type {
         PuzzleType::Two => cube_svg::render_cube_svg(2, scramble),
-        PuzzleType::Three
-        | PuzzleType::ThreeNi
-        | PuzzleType::ThreeFm => cube_svg::render_cube_svg(3, scramble),
-        PuzzleType::Four
-        | PuzzleType::FourFast
-        | PuzzleType::FourNi => cube_svg::render_cube_svg(4, scramble),
-        PuzzleType::Five
-        | PuzzleType::FiveNi => cube_svg::render_cube_svg(5, scramble),
+        PuzzleType::Three | PuzzleType::ThreeNi | PuzzleType::ThreeFm => {
+            cube_svg::render_cube_svg(3, scramble)
+        }
+        PuzzleType::Four | PuzzleType::FourFast | PuzzleType::FourNi => {
+            cube_svg::render_cube_svg(4, scramble)
+        }
+        PuzzleType::Five | PuzzleType::FiveNi => cube_svg::render_cube_svg(5, scramble),
         PuzzleType::Six => cube_svg::render_cube_svg(6, scramble),
         PuzzleType::Seven => cube_svg::render_cube_svg(7, scramble),
         // Other puzzles: placeholder

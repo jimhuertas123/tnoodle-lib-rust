@@ -99,9 +99,9 @@ pub trait PuzzleState: Clone + Eq + Hash + Send + Sync + Sized {
     fn apply_algorithm(&self, algorithm: &str) -> Result<Self, PuzzleError> {
         let mut state = self.clone();
         for mv in split_algorithm(algorithm) {
-            state = state.apply(mv).map_err(|_| {
-                PuzzleError::InvalidScramble(algorithm.to_string())
-            })?;
+            state = state
+                .apply(mv)
+                .map_err(|_| PuzzleError::InvalidScramble(algorithm.to_string()))?;
         }
         Ok(state)
     }
@@ -163,7 +163,8 @@ pub trait Puzzle: Send + Sync {
                     successors.remove(&mv);
                     continue;
                 }
-                ab.append_move(&mv).expect("move from successors should be valid");
+                ab.append_move(&mv)
+                    .expect("move from successors should be valid");
                 break;
             }
         }

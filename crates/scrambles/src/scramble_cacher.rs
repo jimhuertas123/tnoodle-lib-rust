@@ -67,7 +67,9 @@ impl ScrambleCacher {
 
     /// Get a pre-generated scramble. Blocks if the cache is empty.
     pub fn next_scramble(&self) -> String {
-        self.receiver.recv().expect("scramble cacher thread panicked")
+        self.receiver
+            .recv()
+            .expect("scramble cacher thread panicked")
     }
 
     /// Try to get a scramble without blocking.
