@@ -33,6 +33,8 @@
 | C23 | `tools/tests/versions_and_changelog.sh` | no - greps the changelog for a hand-picked list of 17 names; it never checks that an entry names its Java counterpart, or that the list is every changed item (see Findings) |
 | C24 | `tests::concurrent_seeded_scrambles_match_sequential` (8 threads x 6 events) | yes |
 | C25 | `cargo test --workspace` (debug) `test result: ok` | yes |
+| C26 | `three_by_three::tests::exhausted_budget_returns_first_solution_without_extra_draws` (333, 333ni, 333fm x 5 at `Time{0,0}`) | yes - asserts < 5 s, equality with a same-seed first-solution run, and the next `next_long()`; the 70f972c loop never returns, so no `ok` line (Verifier round 2, transcribed by the builder) |
+| C27 | `search::tests::exhausted_searches_return_java_codes` (`SearchWca` with `Time{min: 0, max: 0}`) | yes - asserts exactly `Err(8)` at the `SearchWca` layer (Verifier round 2, transcribed by the builder) |
 
 PARITY.md lists only `svgrot` in its `Check` column, and no contract check above prints under that name, so no `expected` entry can hide a mismatch in C3-C22.
 
