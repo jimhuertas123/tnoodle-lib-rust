@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 use std::thread;
 
-use rand::rngs::ThreadRng;
+use tnoodle_random::JavaRandom;
 
 use crate::puzzle::Puzzle;
 
@@ -22,9 +22,13 @@ impl ScrambleCacher {
     /// `generate_fn` is a closure that produces one scramble string.
     /// We take a closure rather than a `&dyn Puzzle` so the caller controls
     /// how the puzzle is accessed (avoids lifetime complexity with threads).
+    ///
+    /// # Panics
+    ///
+    /// If the operating system cannot start the background thread.
     pub fn new<F>(cache_size: usize, generate_fn: F) -> Self
     where
-        F: Fn(&mut ThreadRng) -> String + Send + 'static,
+        F: Fn(&mut JavaRandom) -> String + Send + 'static,
     {
         let (tx, receiver) = mpsc::sync_channel(cache_size);
         let (stop_tx, stop_rx) = mpsc::channel();
@@ -32,7 +36,7 @@ impl ScrambleCacher {
         thread::Builder::new()
             .name("scramble-cacher".into())
             .spawn(move || {
-                let mut rng = rand::rng();
+                let mut rng = JavaRandom::from_entropy();
                 loop {
                     // Check if we've been asked to stop
                     if stop_rx.try_recv().is_ok() {
@@ -60,12 +64,17 @@ impl ScrambleCacher {
     where
         P: Puzzle + 'static,
     {
-        Self::new(cache_size, move |rng: &mut ThreadRng| {
+        Self::new(cache_size, move |rng: &mut JavaRandom| {
             puzzle.generate_wca_scramble(rng)
         })
     }
 
     /// Get a pre-generated scramble. Blocks if the cache is empty.
+    ///
+    /// # Panics
+    ///
+    /// If the background thread panicked, as Java rethrows its exception.
+    #[must_use]
     pub fn next_scramble(&self) -> String {
         self.receiver
             .recv()
@@ -73,6 +82,7 @@ impl ScrambleCacher {
     }
 
     /// Try to get a scramble without blocking.
+    #[must_use]
     pub fn try_next_scramble(&self) -> Option<String> {
         self.receiver.try_recv().ok()
     }

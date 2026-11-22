@@ -91,6 +91,17 @@ public class CrossCheck {
         }
     }
 
+    /** The solver coordinates a Skewb or Pyraminx scramble reaches, in Java's model. */
+    private static String solverState(String shortName, Puzzle puzzle, String scramble) throws Exception {
+        PuzzleState state = puzzle.getSolvedState().applyAlgorithm(scramble);
+        if (shortName.equals("skewb")) {
+            SkewbSolver.SkewbSolverState s = ((SkewbPuzzle.SkewbState) state).toSkewbSolverState();
+            return s.perm + "," + s.twst;
+        }
+        PyraminxSolver.PyraminxSolverState s = ((PyraminxPuzzle.PyraminxState) state).toPyraminxSolverState();
+        return s.edgePerm + "," + s.edgeOrient + "," + s.cornerOrient + "," + s.tips;
+    }
+
     private static String orNone(String s) {
         return s == null ? NONE : s.trim();
     }
@@ -384,6 +395,32 @@ public class CrossCheck {
                     case "m2p-from-scramble": {
                         String java = cs.min2phase.Tools.fromScramble(f[1]);
                         record("min2phase-from-scramble", java.equals(f[2]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "seeded": {
+                        String shortName = f[1];
+                        String seed = f[2];
+                        String[] rust = f[3].replace("\\n", "\n").split("\\|\\|", -1);
+                        if (shortName.matches("333(ni|fm)?")) {
+                            String[] java = org.worldcubeassociation.tnoodle.puzzle.SeededThreeByThree.scrambles(shortName, seed, 20);
+                            record("seeded-three-family", Arrays.equals(java, rust),
+                                    shortName + " seed '" + seed + "'\n      java: " + Arrays.toString(java) + "\n      rust: " + Arrays.toString(rust));
+                            break;
+                        }
+                        Puzzle puzzle = registry(shortName);
+                        String[] java = puzzle.generateSeededScrambles(seed, 20);
+                        if (shortName.equals("skewb") || shortName.equals("pyram")) {
+                            boolean same = f[3].equals(f[4]);
+                            for (int i = 0; i < 20 && same; i++) {
+                                same = moveCount(java[i]) == moveCount(rust[i])
+                                        && solverState(shortName, puzzle, java[i]).equals(solverState(shortName, puzzle, rust[i]));
+                            }
+                            record("seeded-skewb-pyram", same, shortName + " seed '" + seed + "'\n      java: "
+                                    + Arrays.toString(java) + "\n      rust: " + Arrays.toString(rust));
+                            break;
+                        }
+                        record("seeded-identical", Arrays.equals(java, rust),
+                                shortName + " seed '" + seed + "'\n      java: " + Arrays.toString(java) + "\n      rust: " + Arrays.toString(rust));
                         break;
                     }
                     case "scramble": {

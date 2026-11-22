@@ -1,8 +1,6 @@
 use tnoodle_scrambles::{PuzzleType, generate_scramble};
 
 fn main() {
-    let mut rng = rand::rng();
-
     let puzzles = [
         PuzzleType::Two,
         PuzzleType::Three,
@@ -19,7 +17,7 @@ fn main() {
 
     for puzzle in puzzles {
         println!("--- {} ({}) ---", puzzle.long_name(), puzzle.short_name());
-        let scramble = generate_scramble(puzzle, &mut rng);
+        let scramble = generate_scramble(puzzle);
         println!("{scramble}");
         println!();
     }

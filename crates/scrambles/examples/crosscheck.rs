@@ -9,6 +9,18 @@
 //! cargo run --release -p tnoodle-scrambles --example crosscheck -- <seed> <scale>
 //! ```
 
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_lossless,
+    clippy::many_single_char_names,
+    clippy::type_complexity,
+    clippy::format_collect,
+    clippy::too_many_lines,
+    clippy::items_after_statements,
+    reason = "a test harness that prints cases in table-driven loops"
+)]
+
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use tnoodle_min2phase::search::{
@@ -20,6 +32,7 @@ use tnoodle_scrambles::puzzles::cube_puzzle::{CubePuzzle, CubeState};
 use tnoodle_scrambles::puzzles::cube_svg;
 use tnoodle_scrambles::{
     AlgorithmBuilder, MergingMode, Puzzle, PuzzleState, PuzzleType, generate_scramble,
+    generate_seeded_scrambles,
 };
 use tnoodle_solvers::{pyraminx, skewb, two_by_two};
 use tnoodle_sq12phase::full_cube::FullCube;
@@ -332,11 +345,30 @@ fn print_min2phase_cases(scale: usize) {
     }
 }
 
+/// Seeded scrambles for every event, compared with Java's `generateSeededScrambles`.
+fn print_seeded_cases() {
+    const SEEDS: [&str; 4] = ["a", "tnoodle", "2026-11-21 round 1", ""];
+    for &puzzle in PuzzleType::ALL {
+        for seed in SEEDS {
+            let join = |v: Vec<String>| v.join("||").replace('\n', "\\n");
+            let first = join(generate_seeded_scrambles(puzzle, seed, 20));
+            // Skewb and Pyraminx also prove their text repeats (AD-017).
+            let second = if matches!(puzzle, PuzzleType::Skewb | PuzzleType::Pyra) {
+                join(generate_seeded_scrambles(puzzle, seed, 20))
+            } else {
+                NONE.to_string()
+            };
+            println!("seeded\t{}\t{seed}\t{first}\t{second}", puzzle.short_name());
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let seed: u64 = args.get(1).map_or(1, |s| s.parse().expect("seed"));
     let scale: usize = args.get(2).map_or(1, |s| s.parse().expect("scale"));
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
+    let mut java_rng = JavaRandom::from_seed(format!("crosscheck {seed}").as_bytes());
     std::panic::set_hook(Box::new(|_| {}));
     print_java_random_cases();
     print_min2phase_table_cases();
@@ -362,7 +394,7 @@ fn main() {
 
     // Small-puzzle solvers: same coordinates in, compare answers.
     for _ in 0..100 * scale {
-        let s = two_by_two::random_state(&mut rng);
+        let s = two_by_two::random_state(&mut java_rng);
         let solve = or_none(two_by_two::solve(s, 11));
         let exact = or_none(two_by_two::generate_exactly(s, 11));
         println!(
@@ -371,13 +403,13 @@ fn main() {
         );
     }
     for _ in 0..100 * scale {
-        let s = skewb::random_state(&mut rng);
+        let s = skewb::random_state(&mut java_rng);
         let solve = or_none(skewb::solve(s, 11));
         let exact = or_none(skewb::generate_exactly(s, 11));
         println!("skewb\t{}\t{}\t{solve}\t{exact}", s.perm, s.twist);
     }
     for _ in 0..100 * scale {
-        let s = pyraminx::random_state(&mut rng);
+        let s = pyraminx::random_state(&mut java_rng);
         let solve = or_none(pyraminx::solve(s, 20));
         let exact = or_none(pyraminx::generate_exactly(s, 11 + s.unsolved_tips()));
         println!(
@@ -391,7 +423,7 @@ fn main() {
     let mut sq1 = Sq1Search::new();
     for i in 0..60 * scale {
         let c = if i % 2 == 0 {
-            FullCube::random_cube(&mut rng)
+            FullCube::random_cube(&mut java_rng)
         } else {
             near_solved_sq1(&mut rng)
         };
@@ -404,6 +436,7 @@ fn main() {
     }
 
     print_min2phase_cases(scale);
+    print_seeded_cases();
 
     // Full scrambles for every event, judged by Java. JUDGE_COUNT overrides
     // the per-event count.
@@ -418,7 +451,7 @@ fn main() {
             } * scale,
         );
         for _ in 0..count {
-            let scramble = generate_scramble(puzzle, &mut rng).replace('\n', "\\n");
+            let scramble = generate_scramble(puzzle).replace('\n', "\\n");
             println!("scramble\t{}\t{scramble}", puzzle.short_name());
         }
     }

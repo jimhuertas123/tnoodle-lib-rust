@@ -1,4 +1,4 @@
-//! NxN cube puzzle model used for random-turn scrambles, move canonicalization
+//! `NxN` cube puzzle model used for random-turn scrambles, move canonicalization
 //! and scramble validation.
 //!
 //! Port of Java's `CubePuzzle` / `CubePuzzle.CubeState`. Stickers are stored in
@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 use tnoodle_svglite::{Color, Dimension, Svg};
 
 use crate::algorithm_builder::{AlgorithmBuilder, MergingMode};
@@ -32,6 +32,7 @@ const MAX_SIZE: usize = 11;
 
 /// Name of a move turning slices `0..=inner_slice` of `face`, or `None` for
 /// unnamed rotations. Port of Java's `CubeMove.toString`.
+#[must_use]
 pub fn move_name(size: usize, face: u8, dir: usize, inner_slice: usize) -> Option<String> {
     let f = FACE_NAMES[face as usize];
     let base = if inner_slice == 0 {
@@ -167,6 +168,7 @@ pub struct CubeState {
 }
 
 impl CubeState {
+    #[must_use]
     pub fn solved(size: usize) -> Self {
         let image = (0..NUM_FACES)
             .flat_map(|f| std::iter::repeat_n(f as u8, size * size))
@@ -194,6 +196,7 @@ impl CubeState {
     /// Sticker colors as face letters, faces in URFDLB order, each face in
     /// reading order. Port of Java's `CubeState.toFaceCube` (which only
     /// supports 3x3x3), generalized to any size.
+    #[must_use]
     pub fn to_face_cube(&self) -> String {
         let n = self.size;
         [U, R, F, D, L, B]
@@ -214,6 +217,15 @@ impl PuzzleState for CubeState {
             .moves
             .iter()
             .map(|(name, perm)| (name.clone(), self.permuted(perm)))
+            .collect()
+    }
+
+    /// Java's `getSuccessorsWithinSlice(size / 2 - 1, false)` order.
+    fn scramble_successor_names(&self) -> Vec<String> {
+        let t = tables(self.size);
+        t.scramble_moves
+            .iter()
+            .map(|&i| t.moves[i].0.clone())
             .collect()
     }
 
@@ -279,6 +291,12 @@ pub struct CubePuzzle {
 }
 
 impl CubePuzzle {
+    /// An `NxN` cube. Port of `new CubePuzzle(size)`.
+    ///
+    /// # Panics
+    ///
+    /// If `size` is not between 2 and 7, the sizes tnoodle supports.
+    #[must_use]
     pub fn new(size: usize) -> Self {
         assert!((2..=MAX_SIZE).contains(&size), "Invalid cube size");
         Self {
@@ -288,12 +306,18 @@ impl CubePuzzle {
         }
     }
 
+    #[must_use]
     pub fn size(&self) -> usize {
         self.size
     }
 
     /// The 24 ways to reorient the cube, as move names turning `thickness + 1`
     /// layers. Port of Java's `getRandomOrientationMoves`.
+    ///
+    /// # Panics
+    ///
+    /// If `thickness` is not below the cube size.
+    #[must_use]
     pub fn random_orientation_moves(&self, thickness: usize) -> Vec<Vec<String>> {
         let name = |face, dir| move_name(self.size, face, dir, thickness).expect("named move");
         let u_face_moves = [
@@ -320,9 +344,14 @@ impl CubePuzzle {
         orientations
     }
 
-    /// Port of Java's `applyOrientation` (NoInspection puzzles). With
+    /// Port of Java's `applyOrientation` (`NoInspection` puzzles). With
     /// `discard_redundant_moves`, scramble moves that the reorientation would
     /// cancel or merge with are dropped first.
+    ///
+    /// # Panics
+    ///
+    /// If `orientation` contains a move the cube does not have.
+    #[must_use]
     pub fn apply_orientation(
         &self,
         orientation: &[String],
@@ -353,12 +382,12 @@ impl CubePuzzle {
     /// Random-turn scramble with a random reorientation appended.
     pub fn generate_with_orientation(
         &self,
-        rng: &mut (impl Rng + ?Sized),
+        rng: &mut JavaRandom,
         thickness: usize,
         discard_redundant_moves: bool,
     ) -> PuzzleStateAndGenerator<CubeState> {
         let orientations = self.random_orientation_moves(thickness);
-        let orientation = &orientations[rng.random_range(0..orientations.len())];
+        let orientation = &orientations[rng.next_index(orientations.len())];
         let psag = self.generate_random_moves(rng);
         self.apply_orientation(orientation, psag, discard_redundant_moves)
     }
@@ -485,11 +514,11 @@ mod tests {
                 .equals_normalized(&threes.apply("Fw").unwrap())
         );
 
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         let mut state = solved;
         for _ in 0..100 {
             let successors: Vec<CubeState> = state.successors_by_name().into_values().collect();
-            state = successors[rng.random_range(0..successors.len())].clone();
+            state = successors[rng.next_index(successors.len())].clone();
             let rotated = state.apply_algorithm("Uw Dw'").unwrap();
             assert_eq!(state.get_normalized(), rotated.get_normalized());
         }

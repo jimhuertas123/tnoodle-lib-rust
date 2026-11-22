@@ -1,6 +1,6 @@
 //! Megaminx scramble generation (Pochmann-style random moves).
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 /// Number of lines in a Megaminx scramble.
 const HEIGHT: usize = 7;
@@ -11,7 +11,7 @@ const WIDTH: usize = 10;
 ///
 /// Format: 7 lines of 10 R/D moves each, followed by U or U'.
 /// Each R/D turn is randomly `++` or `--`; the U turn matches the last D turn.
-pub fn generate_scramble(rng: &mut (impl Rng + ?Sized)) -> String {
+pub fn generate_scramble(rng: &mut JavaRandom) -> String {
     let mut lines = Vec::with_capacity(HEIGHT);
 
     for _ in 0..HEIGHT {
@@ -20,7 +20,7 @@ pub fn generate_scramble(rng: &mut (impl Rng + ?Sized)) -> String {
 
         for j in 0..WIDTH {
             let side = if j % 2 == 0 { "R" } else { "D" };
-            clockwise = rng.random_range(0..2) == 0;
+            clockwise = rng.next_index(2) == 0;
             line_moves.push(format!("{side}{}", if clockwise { "++" } else { "--" }));
         }
 
@@ -39,7 +39,7 @@ mod tests {
 
     #[test]
     fn generate_mega_scramble() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         let scramble = generate_scramble(&mut rng);
         let line_count = scramble.lines().count();
         assert_eq!(line_count, 7);

@@ -7,8 +7,22 @@
 //! cargo test --release -p tnoodle-scrambles --test randomness -- --ignored --nocapture
 //! ```
 
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_lossless,
+    clippy::many_single_char_names,
+    clippy::type_complexity,
+    clippy::format_collect,
+    clippy::too_many_lines,
+    clippy::items_after_statements,
+    reason = "statistics over a few thousand counts, far below the precision limits; the single-letter names follow the formulas they implement"
+)]
+
 use tnoodle_min2phase::{tools, util};
-use tnoodle_scrambles::{PuzzleType, generate_scramble};
+use tnoodle_scrambles::{
+    JavaRandom, PuzzleType, ScrambleOptions, SearchBudget, generate_wca_scramble,
+};
 
 /// Java's `Distribution.minimumSampleSize()` is 6144; App.java uses 6500.
 const SCRAMBLE_COUNT: usize = 6500;
@@ -183,7 +197,14 @@ fn statistics_helpers_match_known_values() {
 #[test]
 #[ignore = "slow: generates thousands of scrambles; run with --ignored"]
 fn three_by_three_states_are_uniformly_random() {
-    let mut rng = rand::rng();
+    let mut rng = JavaRandom::from_entropy();
+    // Validity and distribution do not depend on the 3x3 search budget.
+    let fast = ScrambleOptions {
+        search_budget: SearchBudget::Probes {
+            min: 0,
+            max: 60_000,
+        },
+    };
     let mut flipped_edges = [0u64; 7];
     let mut corner_twist_sums = [0u64; 6];
     let mut edge_positions = [[0u64; 12]; 12];
@@ -191,7 +212,7 @@ fn three_by_three_states_are_uniformly_random() {
     let mut odd_parity = 0;
 
     for _ in 0..SCRAMBLE_COUNT {
-        let scramble = generate_scramble(PuzzleType::Three, &mut rng);
+        let scramble = generate_wca_scramble(PuzzleType::Three, &mut rng, &fast);
         let (ca, ea) = cubies(&scramble);
 
         let flips = ea.iter().filter(|&&e| e & 1 == 1).count();
