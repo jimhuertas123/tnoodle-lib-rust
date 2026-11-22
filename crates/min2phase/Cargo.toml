@@ -7,7 +7,7 @@ license.workspace = true
 description = "Two-phase algorithm for 3x3x3 Rubik's cube scramble generation"
 
 [dependencies]
-rand = { workspace = true }
+tnoodle-random = { path = "../random" }
 
 [lints]
 workspace = true

@@ -4,52 +4,47 @@
 //! and `ThreeByThreeCubeFewestMovesPuzzle`.
 
 use rand::Rng;
-use tnoodle_min2phase::{
-    search::{Search, SearchResult},
-    tools,
-};
+use tnoodle_min2phase::search::{SearchBudget, SearchWca, Verbose};
+use tnoodle_min2phase::tools;
+use tnoodle_random::JavaRandom;
 
 use super::cube_puzzle::{CubePuzzle, CubeState};
 use crate::algorithm_builder::{AlgorithmBuilder, MergingMode};
 use crate::puzzle::{Puzzle, PuzzleStateAndGenerator, solve_in};
 
+/// Java's `THREE_BY_THREE_MAX_SCRAMBLE_LENGTH`.
 const MAX_SCRAMBLE_LENGTH: i32 = 21;
-/// Java's `THREE_BY_THREE_TIMEOUT` and `THREE_BY_THREE_TIMEMIN`. Java's
-/// `SearchWCA` reads them as milliseconds; here they are probe counts.
-const MAX_PROBE: i64 = 60_000;
-const MIN_PROBE: i64 = 200;
-/// min2phase verbose flag: return the inverse of the solution (the scramble).
-const INVERSE_SOLUTION: u32 = 2;
 const FM_PADDING: &str = "R' U' F";
 
 /// Random-state scramble whose underlying solution may not start on
 /// `first_axis` nor end on `last_axis` (so the scramble may not end on
-/// `first_axis` nor start on `last_axis`).
+/// `first_axis` nor start on `last_axis`). Port of
+/// `ThreeByThreeCubePuzzle.generateRandomMoves`.
 fn generate_random_moves(
     rng: &mut impl Rng,
     first_axis: Option<&str>,
     last_axis: Option<&str>,
 ) -> PuzzleStateAndGenerator<CubeState> {
-    let mut search = Search::new();
+    let mut java = JavaRandom::from_seed(&rng.random::<[u8; 20]>());
+    let mut search = SearchWca::new();
     let scramble = loop {
-        let facelets = tools::random_state(rng);
-        let result = search.solution_with_restrictions(
+        let facelets = tools::random_cube(&mut java);
+        let result = search.solution(
             &facelets,
             MAX_SCRAMBLE_LENGTH,
-            MAX_PROBE,
-            MIN_PROBE,
-            INVERSE_SOLUTION,
+            SearchBudget::default(),
+            Verbose::INVERSE_SOLUTION,
             first_axis,
             last_axis,
         );
-        if let SearchResult::Solution(scramble) = result {
+        if let Ok(scramble) = result {
             break scramble;
         }
     };
-    // Same as Java: canonicalize the solver output so it can never contain
-    // redundant moves.
+    // Same as Java: canonicalize the trimmed solver output so it can never
+    // contain redundant moves.
     let mut ab = AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(3));
-    ab.append_algorithm(&scramble)
+    ab.append_algorithm(scramble.trim())
         .expect("min2phase emits valid moves");
     ab.into_state_and_generator()
 }

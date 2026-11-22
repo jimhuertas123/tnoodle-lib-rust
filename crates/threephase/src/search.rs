@@ -22,8 +22,7 @@ use crate::edge3::{self, Edge3};
 use crate::full_cube::FullCube;
 use crate::moves::*;
 
-use tnoodle_min2phase::search::Search as Search333;
-use tnoodle_min2phase::search::SearchResult;
+use tnoodle_min2phase::search::{Search as Search333, Verbose};
 
 // ─── constants ───────────────────────────────────────────────────────
 
@@ -379,10 +378,12 @@ impl Search {
         // Get the 3x3 facelet and solve with min2phase
         let facelet_333 = sol_cube.to_333_facelet();
 
-        let sol_333 = self.search333.solution(&facelet_333, 21, 1000000, 500, 0);
+        let sol_333 = self
+            .search333
+            .solution(&facelet_333, 21, 1_000_000, 500, Verbose::NONE);
 
         match sol_333 {
-            SearchResult::Solution(sol_str) => {
+            Ok(sol_str) => {
                 // Parse solution string into move indices and apply
                 let sol_moves = parse_moves_333(&sol_str);
                 for &m in &sol_moves {
@@ -391,8 +392,8 @@ impl Search {
 
                 self.solution = sol_cube.get_move_string(self.inverse_solution, self.with_rotation);
             }
-            SearchResult::Error(code) => {
-                self.solution = format!("Error {}", code);
+            Err(error) => {
+                self.solution = error.to_string();
             }
         }
     }

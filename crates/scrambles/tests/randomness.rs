@@ -21,7 +21,7 @@ const TEST_COUNT: f64 = 1.0 + 12.0 + 1.0 + 8.0 + 1.0;
 /// Cubie view of a scramble: `ca[i] = (twist << 3) | corner`,
 /// `ea[i] = (edge << 1) | flip`, for the piece sitting at position `i`.
 fn cubies(scramble: &str) -> ([u8; 8], [u8; 12]) {
-    let facelets = tools::from_scramble(scramble);
+    let facelets = tools::from_scramble(scramble).expect("generated scrambles are valid moves");
     let mut f = [0u8; 54];
     for (i, c) in facelets.chars().enumerate() {
         f[i] = "URFDLB".find(c).unwrap() as u8;

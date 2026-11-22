@@ -393,7 +393,7 @@ mod tests {
     #[test]
     fn verify_r_against_min2phase() {
         let ours = cube_state_to_facelets("R");
-        let theirs = tnoodle_min2phase::tools::from_scramble("R");
+        let theirs = tnoodle_min2phase::tools::from_scramble("R").unwrap();
         assert_eq!(
             ours, theirs,
             "R move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn verify_u_against_min2phase() {
         let ours = cube_state_to_facelets("U");
-        let theirs = tnoodle_min2phase::tools::from_scramble("U");
+        let theirs = tnoodle_min2phase::tools::from_scramble("U").unwrap();
         assert_eq!(
             ours, theirs,
             "U move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -413,7 +413,7 @@ mod tests {
     #[test]
     fn verify_f_against_min2phase() {
         let ours = cube_state_to_facelets("F");
-        let theirs = tnoodle_min2phase::tools::from_scramble("F");
+        let theirs = tnoodle_min2phase::tools::from_scramble("F").unwrap();
         assert_eq!(
             ours, theirs,
             "F move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn verify_d_against_min2phase() {
         let ours = cube_state_to_facelets("D");
-        let theirs = tnoodle_min2phase::tools::from_scramble("D");
+        let theirs = tnoodle_min2phase::tools::from_scramble("D").unwrap();
         assert_eq!(
             ours, theirs,
             "D move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -433,7 +433,7 @@ mod tests {
     #[test]
     fn verify_l_against_min2phase() {
         let ours = cube_state_to_facelets("L");
-        let theirs = tnoodle_min2phase::tools::from_scramble("L");
+        let theirs = tnoodle_min2phase::tools::from_scramble("L").unwrap();
         assert_eq!(
             ours, theirs,
             "L move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn verify_b_against_min2phase() {
         let ours = cube_state_to_facelets("B");
-        let theirs = tnoodle_min2phase::tools::from_scramble("B");
+        let theirs = tnoodle_min2phase::tools::from_scramble("B").unwrap();
         assert_eq!(
             ours, theirs,
             "B move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -454,7 +454,7 @@ mod tests {
     fn verify_primes_against_min2phase() {
         for mv in ["R'", "U'", "F'", "D'", "L'", "B'"] {
             let ours = cube_state_to_facelets(mv);
-            let theirs = tnoodle_min2phase::tools::from_scramble(mv);
+            let theirs = tnoodle_min2phase::tools::from_scramble(mv).unwrap();
             assert_eq!(
                 ours, theirs,
                 "{mv} mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -466,7 +466,7 @@ mod tests {
     fn verify_doubles_against_min2phase() {
         for mv in ["R2", "U2", "F2", "D2", "L2", "B2"] {
             let ours = cube_state_to_facelets(mv);
-            let theirs = tnoodle_min2phase::tools::from_scramble(mv);
+            let theirs = tnoodle_min2phase::tools::from_scramble(mv).unwrap();
             assert_eq!(
                 ours, theirs,
                 "{mv} mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -477,7 +477,7 @@ mod tests {
     #[test]
     fn verify_sequence_r_u_against_min2phase() {
         let ours = cube_state_to_facelets("R U");
-        let theirs = tnoodle_min2phase::tools::from_scramble("R U");
+        let theirs = tnoodle_min2phase::tools::from_scramble("R U").unwrap();
         assert_eq!(
             ours, theirs,
             "R U mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn verify_sequence_r_u_r_prime_against_min2phase() {
         let ours = cube_state_to_facelets("R U R'");
-        let theirs = tnoodle_min2phase::tools::from_scramble("R U R'");
+        let theirs = tnoodle_min2phase::tools::from_scramble("R U R'").unwrap();
         assert_eq!(
             ours, theirs,
             "R U R' mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -497,7 +497,7 @@ mod tests {
     #[test]
     fn verify_sexy_move_against_min2phase() {
         let ours = cube_state_to_facelets("R U R' U'");
-        let theirs = tnoodle_min2phase::tools::from_scramble("R U R' U'");
+        let theirs = tnoodle_min2phase::tools::from_scramble("R U R' U'").unwrap();
         assert_eq!(
             ours, theirs,
             "sexy move mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -508,7 +508,7 @@ mod tests {
     fn verify_long_scramble_against_min2phase() {
         let scramble = "R U R' F2 D B' L U2 R D' F L2 B2 U R2 D2 L' F B";
         let ours = cube_state_to_facelets(scramble);
-        let theirs = tnoodle_min2phase::tools::from_scramble(scramble);
+        let theirs = tnoodle_min2phase::tools::from_scramble(scramble).unwrap();
         assert_eq!(
             ours, theirs,
             "long scramble mismatch:\n  ours:   {ours}\n  theirs: {theirs}"
@@ -520,7 +520,7 @@ mod tests {
         // T-perm: a well-known algorithm
         let scramble = "R U R' U' R' F R2 U' R' U' R U R' F'";
         let ours = cube_state_to_facelets(scramble);
-        let theirs = tnoodle_min2phase::tools::from_scramble(scramble);
+        let theirs = tnoodle_min2phase::tools::from_scramble(scramble).unwrap();
         assert_eq!(
             ours, theirs,
             "T-perm mismatch:\n  ours:   {ours}\n  theirs: {theirs}"

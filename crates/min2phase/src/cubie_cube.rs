@@ -1,6 +1,6 @@
 use crate::coord_cube;
 use crate::util;
-/// CubieCube representation: corners as `ca[8]`, edges as `ea[12]`.
+/// `CubieCube` representation: corners as `ca[8]`, edges as `ea[12]`.
 /// Each corner byte: bits 0-2 = permutation, bits 3-4 = orientation (0-2).
 /// Each edge byte: bit 0 = flip, bits 1+ = permutation.
 ///
@@ -17,7 +17,14 @@ pub struct CubieCube {
     pub ea: [u8; 12],
 }
 
+impl Default for CubieCube {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CubieCube {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             ca: [0, 1, 2, 3, 4, 5, 6, 7],
@@ -25,6 +32,7 @@ impl CubieCube {
         }
     }
 
+    #[must_use]
     pub fn from_coords(cperm: i32, twist: i32, eperm: i32, flip: i32) -> Self {
         let mut cc = Self::new();
         cc.set_c_perm(cperm);
@@ -58,6 +66,7 @@ impl CubieCube {
 
     // ---- Phase 1 coordinates ----
 
+    #[must_use]
     pub fn get_flip(&self) -> i32 {
         let mut idx = 0i32;
         for i in 0..11 {
@@ -77,10 +86,12 @@ impl CubieCube {
         self.ea[11] = (self.ea[11] & 0xfe) | parity as u8;
     }
 
+    #[must_use]
     pub fn get_flip_sym(&self) -> i32 {
         TABLES.flip_r2s[self.get_flip() as usize] as i32
     }
 
+    #[must_use]
     pub fn get_twist(&self) -> i32 {
         let mut idx = 0i32;
         for i in 0..7 {
@@ -100,10 +111,12 @@ impl CubieCube {
         self.ca[7] = (self.ca[7] & 0x7) | ((twst % 3) as u8) << 3;
     }
 
+    #[must_use]
     pub fn get_twist_sym(&self) -> i32 {
         TABLES.twist_r2s[self.get_twist() as usize] as i32
     }
 
+    #[must_use]
     pub fn get_ud_slice(&self) -> i32 {
         494 - util::get_comb(&self.ea, 8, true)
     }
@@ -114,6 +127,7 @@ impl CubieCube {
 
     // ---- Phase 2 coordinates ----
 
+    #[must_use]
     pub fn get_c_perm(&self) -> i32 {
         util::get_n_perm(&self.ca, 8, false)
     }
@@ -122,10 +136,12 @@ impl CubieCube {
         util::set_n_perm(&mut self.ca, idx, 8, false);
     }
 
+    #[must_use]
     pub fn get_c_perm_sym(&self) -> i32 {
         e_sym2c_sym(TABLES.e_perm_r2s[self.get_c_perm() as usize] as i32)
     }
 
+    #[must_use]
     pub fn get_e_perm(&self) -> i32 {
         util::get_n_perm(&self.ea, 8, true)
     }
@@ -134,10 +150,12 @@ impl CubieCube {
         util::set_n_perm(&mut self.ea, idx, 8, true);
     }
 
+    #[must_use]
     pub fn get_e_perm_sym(&self) -> i32 {
         TABLES.e_perm_r2s[self.get_e_perm() as usize] as i32
     }
 
+    #[must_use]
     pub fn get_m_perm(&self) -> i32 {
         util::get_n_perm(&self.ea, 12, true) % 24
     }
@@ -146,6 +164,7 @@ impl CubieCube {
         util::set_n_perm(&mut self.ea, idx, 12, true);
     }
 
+    #[must_use]
     pub fn get_c_comb(&self) -> i32 {
         util::get_comb(&self.ca, 0, false)
     }
@@ -156,15 +175,18 @@ impl CubieCube {
 
     // ---- Parity ----
 
+    #[must_use]
     pub fn get_edge_parity_bit(&self) -> i32 {
         util::get_n_parity(util::get_n_perm(&self.ea, 12, true), 12)
     }
 
+    #[must_use]
     pub fn get_corner_parity_bit(&self) -> i32 {
         util::get_n_parity(self.get_c_perm(), 8)
     }
 
     /// Verify solvability. 0 = ok, negative = error code.
+    #[must_use]
     pub fn verify(&self) -> i32 {
         let mut sum = 0i32;
         let mut edge_mask = 0u32;
@@ -231,13 +253,13 @@ pub fn edge_mult(a: &CubieCube, b: &CubieCube, prod: &mut CubieCube) {
     }
 }
 
-/// b = S_idx^-1 * a * S_idx, corners only. Uses global TABLES.
+/// b = S_idx^-1 * a * `S_idx`, corners only. Uses global TABLES.
 pub fn corn_conjugate(a: &CubieCube, idx: usize, b: &mut CubieCube) {
     let tables = &*TABLES;
     corn_conjugate_with(a, idx, b, &tables.cube_sym, &tables.sym_mult_inv);
 }
 
-/// b = S_idx^-1 * a * S_idx, corners only. Takes explicit table references.
+/// b = S_idx^-1 * a * `S_idx`, corners only. Takes explicit table references.
 pub fn corn_conjugate_with(
     a: &CubieCube,
     idx: usize,
@@ -257,13 +279,13 @@ pub fn corn_conjugate_with(
     }
 }
 
-/// b = S_idx^-1 * a * S_idx, edges only. Uses global TABLES.
+/// b = S_idx^-1 * a * `S_idx`, edges only. Uses global TABLES.
 pub fn edge_conjugate(a: &CubieCube, idx: usize, b: &mut CubieCube) {
     let tables = &*TABLES;
     edge_conjugate_with(a, idx, b, &tables.cube_sym, &tables.sym_mult_inv);
 }
 
-/// b = S_idx^-1 * a * S_idx, edges only. Takes explicit table references.
+/// b = S_idx^-1 * a * `S_idx`, edges only. Takes explicit table references.
 pub fn edge_conjugate_with(
     a: &CubieCube,
     idx: usize,
@@ -285,12 +307,14 @@ pub fn edge_conjugate_with(
 // ---------------------------------------------------------------------------
 
 /// Edge perm sym -> corner perm sym coordinate conversion.
-pub const SYM_E2C_MAGIC: u32 = 0x00DDDD00;
+pub const SYM_E2C_MAGIC: u32 = 0x00DD_DD00;
 
+#[must_use]
 pub fn e_sym2c_sym(idx: i32) -> i32 {
     idx ^ ((SYM_E2C_MAGIC >> ((idx & 0xf) << 1)) & 3) as i32
 }
 
+#[must_use]
 pub fn get_perm_sym_inv(idx: usize, sym: usize, is_corner: bool) -> i32 {
     let tables = &*TABLES;
     let mut idxi = tables.perm_inv_edge_sym[idx] as i32;
@@ -341,9 +365,9 @@ pub struct CubieCubeTables {
 
 /// URF conjugation cubes (used in Search).
 static URF1: LazyLock<CubieCube> =
-    LazyLock::new(|| CubieCube::from_coords(2531, 1373, 67026819, 1367));
+    LazyLock::new(|| CubieCube::from_coords(2531, 1373, 67_026_819, 1367));
 static URF2: LazyLock<CubieCube> =
-    LazyLock::new(|| CubieCube::from_coords(2089, 1906, 322752913, 2040));
+    LazyLock::new(|| CubieCube::from_coords(2089, 1906, 322_752_913, 2040));
 
 pub static URF_MOVE: [[u8; 18]; 6] = [
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
@@ -393,12 +417,12 @@ impl CubieCubeTables {
     }
 
     fn init_move(&mut self) {
-        self.move_cube[0] = CubieCube::from_coords(15120, 0, 119750400, 0);
-        self.move_cube[3] = CubieCube::from_coords(21021, 1494, 323403417, 0);
-        self.move_cube[6] = CubieCube::from_coords(8064, 1236, 29441808, 550);
+        self.move_cube[0] = CubieCube::from_coords(15120, 0, 119_750_400, 0);
+        self.move_cube[3] = CubieCube::from_coords(21021, 1494, 323_403_417, 0);
+        self.move_cube[6] = CubieCube::from_coords(8064, 1236, 29_441_808, 550);
         self.move_cube[9] = CubieCube::from_coords(9, 0, 5880, 0);
-        self.move_cube[12] = CubieCube::from_coords(1230, 412, 2949660, 0);
-        self.move_cube[15] = CubieCube::from_coords(224, 137, 328552, 137);
+        self.move_cube[12] = CubieCube::from_coords(1230, 412, 2_949_660, 0);
+        self.move_cube[15] = CubieCube::from_coords(224, 137, 328_552, 137);
 
         for a in (0..18).step_by(3) {
             for p in 0..2 {
@@ -414,9 +438,9 @@ impl CubieCubeTables {
         let mut c = CubieCube::new();
         let mut d = CubieCube::new();
 
-        let f2 = CubieCube::from_coords(28783, 0, 259268407, 0);
-        let u4 = CubieCube::from_coords(15138, 0, 119765538, 7);
-        let mut lr2 = CubieCube::from_coords(5167, 0, 83473207, 0);
+        let f2 = CubieCube::from_coords(28783, 0, 259_268_407, 0);
+        let u4 = CubieCube::from_coords(15138, 0, 119_765_538, 7);
+        let mut lr2 = CubieCube::from_coords(5167, 0, 83_473_207, 0);
         for i in 0..8 {
             lr2.ca[i] |= 3 << 3;
         }
@@ -516,11 +540,11 @@ impl CubieCubeTables {
             if i % 16 == 15 {
                 // URF conjugate
                 let mut temp = CubieCube::new();
-                corn_mult(&*URF2, &c, &mut temp);
+                corn_mult(&URF2, &c, &mut temp);
                 let mut temp2 = CubieCube::new();
-                corn_mult(&temp, &*URF1, &mut temp2);
-                edge_mult(&*URF2, &c, &mut temp);
-                edge_mult(&temp, &*URF1, &mut d);
+                corn_mult(&temp, &URF1, &mut temp2);
+                edge_mult(&URF2, &c, &mut temp);
+                edge_mult(&temp, &URF1, &mut d);
                 d.ca.copy_from_slice(&temp2.ca);
                 c = d.clone();
             }
@@ -642,7 +666,9 @@ impl CubieCubeTables {
         let mut cc = CubieCube::new();
         for i in 0..coord_cube::N_PERM_SYM {
             cc.set_e_perm(self.e_perm_s2r[i] as i32);
-            self.perm2_comb_p[i] = util::get_comb(&cc.ea, 0, true) as u8;
+            // With `USE_COMBP_PRUN` the corner parity selects the upper 70 entries.
+            let parity = util::get_n_parity(i32::from(self.e_perm_s2r[i]), 8);
+            self.perm2_comb_p[i] = (util::get_comb(&cc.ea, 0, true) + parity * 70) as u8;
             cc.inv_cubie_cube();
             // Can't call cc.get_e_perm_sym() here because that accesses TABLES (deadlock).
             // Inline the lookup using self.e_perm_r2s instead.
@@ -658,6 +684,28 @@ impl CubieCubeTables {
     }
 }
 
+/// Port of `CubieCube.URFConjugate`: `c = urf2 * c * urf1`, rotating the cube
+/// about the URF corner.
+pub fn urf_conjugate(c: &mut CubieCube) {
+    let mut temp = CubieCube::new();
+    let mut corners = CubieCube::new();
+    corn_mult(&URF2, c, &mut temp);
+    corn_mult(&temp, &URF1, &mut corners);
+    edge_mult(&URF2, c, &mut temp);
+    let mut edges = CubieCube::new();
+    edge_mult(&temp, &URF1, &mut edges);
+    c.ca = corners.ca;
+    c.ea = edges.ea;
+}
+
+/// Port of `CubieCube.selfSymmetry`: bit `i` is set when the cube is unchanged
+/// by symmetry `i` (48 and above: the inverse cube).
+#[must_use]
+pub fn self_symmetry(cube: &CubieCube) -> u64 {
+    TABLES.self_symmetry(cube)
+}
+
+#[must_use]
 pub fn get_skip_moves(ssym: u64) -> i32 {
     let tables = &*TABLES;
     let mut ret = 0i32;
@@ -735,7 +783,7 @@ mod tests {
 
     #[test]
     fn inverse_restores_identity() {
-        let mut cc = CubieCube::from_coords(1234, 567, 12345678, 891);
+        let mut cc = CubieCube::from_coords(1234, 567, 12_345_678, 891);
         let original = cc.clone();
         cc.inv_cubie_cube();
         // a * a^-1 should be identity

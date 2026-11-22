@@ -11,10 +11,10 @@
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use tnoodle_min2phase::{
-    search::{Search as TwoPhase, SearchResult},
-    tools,
+use tnoodle_min2phase::search::{
+    Search as TwoPhase, SearchBudget, SearchError, SearchWca, Verbose,
 };
+use tnoodle_min2phase::tools;
 use tnoodle_random::JavaRandom;
 use tnoodle_scrambles::puzzles::cube_puzzle::{CubePuzzle, CubeState};
 use tnoodle_scrambles::puzzles::cube_svg;
@@ -153,6 +153,185 @@ fn print_java_random_cases() {
     }
 }
 
+fn fnv(values: impl IntoIterator<Item = u32>) -> String {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for v in values {
+        h = (h ^ u64::from(v)).wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("{h:x}")
+}
+
+fn rows(t: &[Vec<u16>]) -> String {
+    fnv(t.iter().flatten().map(|&v| u32::from(v)))
+}
+
+/// Hashes of every min2phase table, compared with Java's after `Search.init()`.
+fn print_min2phase_table_cases() {
+    use tnoodle_min2phase::coord_cube::COORD_TABLES as T;
+    use tnoodle_min2phase::cubie_cube::TABLES as C;
+    let flat = |t: &[u32]| fnv(t.iter().copied());
+    let small = |t: &[u16]| fnv(t.iter().map(|&v| u32::from(v)));
+    let cases = [
+        ("UDSliceMove", rows(&T.ud_slice_move)),
+        ("TwistMove", rows(&T.twist_move)),
+        ("FlipMove", rows(&T.flip_move)),
+        ("UDSliceConj", rows(&T.ud_slice_conj)),
+        ("UDSliceTwistPrun", flat(&T.ud_slice_twist_prun)),
+        ("UDSliceFlipPrun", flat(&T.ud_slice_flip_prun)),
+        ("TwistFlipPrun", flat(&T.twist_flip_prun)),
+        ("CPermMove", rows(&T.c_perm_move)),
+        ("EPermMove", rows(&T.e_perm_move)),
+        ("MPermMove", rows(&T.m_perm_move)),
+        ("MPermConj", rows(&T.m_perm_conj)),
+        ("CCombPMove", rows(&T.c_comb_p_move)),
+        ("CCombPConj", rows(&T.c_comb_p_conj)),
+        ("MCPermPrun", flat(&T.mc_perm_prun)),
+        ("EPermCCombPPrun", flat(&T.e_perm_c_comb_p_prun)),
+        ("FlipS2RF", small(&C.flip_s2rf)),
+        ("FlipR2S", small(&C.flip_r2s)),
+        ("SymStateTwist", small(&C.sym_state_twist)),
+        ("SymStatePerm", small(&C.sym_state_perm)),
+        (
+            "Perm2CombP",
+            fnv(C.perm2_comb_p.iter().map(|&v| u32::from(v))),
+        ),
+    ];
+    for (name, hash) in cases {
+        println!("m2p-table\t{name}\t{hash}");
+    }
+}
+
+fn shown(result: Result<String, SearchError>) -> String {
+    result.unwrap_or_else(|e| e.to_string())
+}
+
+/// A random sequence of `n` face moves (0-17) with no two on the same face in a row.
+fn random_moves(rng: &mut JavaRandom, n: usize) -> Vec<usize> {
+    let mut moves: Vec<usize> = Vec::new();
+    while moves.len() < n {
+        let m = rng.next_index(18);
+        if moves.last().is_none_or(|&last| last / 3 != m / 3) {
+            moves.push(m);
+        }
+    }
+    moves
+}
+
+/// min2phase `Search`, `SearchWca` and `Tools` on the same inputs as Java.
+fn print_min2phase_cases(scale: usize) {
+    const MOVE_NAMES: [&str; 18] = [
+        "U", "U2", "U'", "R", "R2", "R'", "F", "F2", "F'", "D", "D2", "D'", "L", "L2", "L'", "B",
+        "B2", "B'",
+    ];
+    let mut rng = JavaRandom::from_seed(b"min2phase");
+    let mut search = TwoPhase::new();
+    let flags = [0, 2, 1, 4, 7];
+    for _ in 0..1000 * scale {
+        let facelets = tools::random_cube(&mut rng);
+        for verbose in flags {
+            let out =
+                shown(search.solution(&facelets, 21, 100_000, 0, Verbose::from_bits(verbose)));
+            println!("m2p-search\t{facelets}\t21\t100000\t0\t{verbose}\t{out}");
+        }
+        let out = shown(search.solution(&facelets, 21, 100_000, 2000, Verbose::NONE));
+        println!("m2p-search\t{facelets}\t21\t100000\t2000\t0\t{out}");
+    }
+    for _ in 0..50 * scale {
+        let facelets = tools::from_scramble_moves(&random_moves(&mut rng, 13));
+        let out = shown(search.solution(&facelets, 13, 100_000, 0, Verbose::OPTIMAL_SOLUTION));
+        println!("m2p-opt\t{facelets}\t13\t100000\t0\t8\t{out}");
+    }
+    let restrictions = [
+        (Some("R"), Some("F")),
+        (Some("U"), Some("B")),
+        (Some("L"), Some("L")),
+        (Some("F"), Some("D")),
+        (None, Some("F")),
+        (Some("R"), None),
+    ];
+    let mut wca = SearchWca::new();
+    let budget = SearchBudget::Time {
+        min: std::time::Duration::ZERO,
+        max: std::time::Duration::from_secs(60),
+    };
+    for _ in 0..100 * scale {
+        let facelets = tools::random_cube(&mut rng);
+        for (first, last) in restrictions {
+            let out = shown(wca.solution(
+                &facelets,
+                21,
+                budget,
+                Verbose::INVERSE_SOLUTION,
+                first,
+                last,
+            ));
+            println!(
+                "m2p-wca\t{facelets}\t{}\t{}\t{out}",
+                first.unwrap_or(NONE),
+                last.unwrap_or(NONE)
+            );
+        }
+    }
+    for _ in 0..100 * scale {
+        let facelets = tools::random_cube(&mut rng);
+        let mut outs = vec![shown(search.solution(
+            &facelets,
+            21,
+            100_000,
+            0,
+            Verbose::NONE,
+        ))];
+        outs.push(format!("{}/{}", search.number_of_probes(), search.length()));
+        for _ in 0..3 {
+            outs.push(shown(search.next(100_000, 0, Verbose::NONE)));
+            outs.push(format!("{}/{}", search.number_of_probes(), search.length()));
+        }
+        println!("m2p-next\t{facelets}\t{}", outs.join("|"));
+    }
+    for i in 0..200 * scale {
+        let mut chars: Vec<char> = tools::random_cube(&mut rng).chars().collect();
+        // Swap two stickers, or drop one, to corrupt the cube in different ways.
+        if i % 10 == 0 {
+            chars.pop();
+        } else {
+            let a = rng.next_index(54);
+            let b = rng.next_index(54);
+            chars.swap(a, b);
+        }
+        let facelets: String = chars.into_iter().collect();
+        let out = shown(search.solution(&facelets, 21, 100_000, 0, Verbose::NONE));
+        println!("m2p-error\t{facelets}\t{out}");
+    }
+    type Generator = fn(&mut JavaRandom) -> String;
+    let generators: [(&str, Generator); 10] = [
+        ("randomCube", tools::random_cube),
+        ("randomLastLayer", tools::random_last_layer),
+        ("randomLastSlot", tools::random_last_slot),
+        ("randomZBLastLayer", tools::random_zb_last_layer),
+        (
+            "randomCornerOfLastLayer",
+            tools::random_corner_of_last_layer,
+        ),
+        ("randomEdgeOfLastLayer", tools::random_edge_of_last_layer),
+        ("randomCrossSolved", tools::random_cross_solved),
+        ("randomEdgeSolved", tools::random_edge_solved),
+        ("randomCornerSolved", tools::random_corner_solved),
+        ("superFlip", |_| tools::super_flip()),
+    ];
+    for (name, generate) in generators {
+        let mut gen_rng = JavaRandom::from_seed(format!("tools-{name}").as_bytes());
+        let states: Vec<String> = (0..500).map(|_| generate(&mut gen_rng)).collect();
+        println!("m2p-tools\t{name}\t{}", states.join(","));
+    }
+    for _ in 0..200 * scale {
+        let moves = random_moves(&mut rng, 25);
+        let scramble: Vec<&str> = moves.iter().map(|&m| MOVE_NAMES[m]).collect();
+        let scramble = scramble.join(" ");
+        let facelets = tools::from_scramble(&scramble).expect("canonical moves");
+        println!("m2p-from-scramble\t{scramble}\t{facelets}");
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let seed: u64 = args.get(1).map_or(1, |s| s.parse().expect("seed"));
@@ -160,6 +339,7 @@ fn main() {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     std::panic::set_hook(Box::new(|_| {}));
     print_java_random_cases();
+    print_min2phase_table_cases();
 
     // Canonicalization (AlgorithmBuilder) and the app's SVG renderer.
     for size in 2..=7 {
@@ -223,17 +403,7 @@ fn main() {
         );
     }
 
-    // min2phase: the same facelets go to both solvers.
-    let mut two_phase = TwoPhase::new();
-    for _ in 0..100 * scale {
-        let facelets = tools::random_state(&mut rng);
-        let scramble =
-            match two_phase.solution(&facelets, 21, 1_000_000, 0, INVERSE_SOLUTION as u32) {
-                SearchResult::Solution(s) => s,
-                other => format!("ERR {other:?}"),
-            };
-        println!("333solve\t{facelets}\t{}", scramble.trim());
-    }
+    print_min2phase_cases(scale);
 
     // Full scrambles for every event, judged by Java. JUDGE_COUNT overrides
     // the per-event count.

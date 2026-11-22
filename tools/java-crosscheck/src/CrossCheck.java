@@ -69,6 +69,28 @@ public class CrossCheck {
         return r;
     }
 
+    private static String hexOf(String s) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : s.getBytes(java.nio.charset.StandardCharsets.UTF_8)) hex.append(String.format("%02x", b));
+        return hex.toString();
+    }
+
+    private static String toolsState(String name, java.util.Random r) {
+        switch (name) {
+            case "randomCube": return cs.min2phase.Tools.randomCube(r);
+            case "randomLastLayer": return cs.min2phase.Tools.randomLastLayer();
+            case "randomLastSlot": return cs.min2phase.Tools.randomLastSlot();
+            case "randomZBLastLayer": return cs.min2phase.Tools.randomZBLastLayer();
+            case "randomCornerOfLastLayer": return cs.min2phase.Tools.randomCornerOfLastLayer();
+            case "randomEdgeOfLastLayer": return cs.min2phase.Tools.randomEdgeOfLastLayer();
+            case "randomCrossSolved": return cs.min2phase.Tools.randomCrossSolved();
+            case "randomEdgeSolved": return cs.min2phase.Tools.randomEdgeSolved();
+            case "randomCornerSolved": return cs.min2phase.Tools.randomCornerSolved();
+            case "superFlip": return cs.min2phase.Tools.superFlip();
+            default: throw new IllegalArgumentException(name);
+        }
+    }
+
     private static String orNone(String s) {
         return s == null ? NONE : s.trim();
     }
@@ -151,13 +173,22 @@ public class CrossCheck {
         PyraminxSolver pyraSolver = new PyraminxSolver();
         SkewbPuzzle skewb = new SkewbPuzzle();
         PyraminxPuzzle pyra = new PyraminxPuzzle();
-        cs.min2phase.Search twoPhase = new cs.min2phase.Search();
+        // Rust always uses fully built tables; Java builds them fully on Search.init(),
+        // which SearchWCA and threephase call too (PARITY.md).
+        cs.min2phase.Search.init();
+        cs.min2phase.Search min2phase = new cs.min2phase.Search();
+        cs.min2phase.SearchWCA min2phaseWca = new cs.min2phase.SearchWCA();
 
         try (BufferedReader in = new BufferedReader(new FileReader(args[0]))) {
             String line;
             while ((line = in.readLine()) != null) {
                 String[] f = line.split("\t", -1);
                 switch (f[0]) {
+                    case "m2p-table": {
+                        String java = cs.min2phase.TableHashes.all().get(f[1]);
+                        record("min2phase-tables", f[2].equals(java), f[1] + " java " + java + " rust " + f[2]);
+                        break;
+                    }
                     case "jr-bounded": {
                         java.security.SecureRandom r = sha1prng(f[1]);
                         int bound = Integer.parseInt(f[2]);
@@ -310,15 +341,49 @@ public class CrossCheck {
                         record("sq1-solution-opt", optimal.equals(f[7].trim()), line + "\n      java: " + optimal);
                         break;
                     }
-                    case "333solve": {
-                        String facelets = f[1];
-                        String rust = f[2];
-                        boolean valid = !rust.startsWith("ERR")
-                                && cs.min2phase.Tools.fromScramble(rust).equals(facelets)
-                                && moveCount(rust) <= 21;
-                        record("333solve-reaches-state", valid, line);
-                        String java = twoPhase.solution(facelets, 21, 1000000, 0, cs.min2phase.Search.INVERSE_SOLUTION).trim();
-                        record("333solve-same-as-java", java.equals(rust), line + "\n      java: " + java);
+                    case "m2p-search":
+                    case "m2p-opt": {
+                        String java = min2phase.solution(f[1], Integer.parseInt(f[2]), Long.parseLong(f[3]),
+                                Long.parseLong(f[4]), Integer.parseInt(f[5]));
+                        String check = f[0].equals("m2p-opt") ? "min2phase-search-optimal" : "min2phase-search";
+                        record(check, java.equals(f[6]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-wca": {
+                        String first = f[2].equals(NONE) ? null : f[2];
+                        String last = f[3].equals(NONE) ? null : f[3];
+                        String java = min2phaseWca.solution(f[1], 21, 60000, 0, cs.min2phase.Search.INVERSE_SOLUTION, first, last);
+                        record("min2phase-search-wca", java.equals(f[4]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-next": {
+                        StringBuilder java = new StringBuilder(min2phase.solution(f[1], 21, 100000, 0, 0));
+                        java.append("|").append(min2phase.numberOfProbes()).append("/").append(min2phase.length());
+                        for (int i = 0; i < 3; i++) {
+                            java.append("|").append(min2phase.next(100000, 0, 0));
+                            java.append("|").append(min2phase.numberOfProbes()).append("/").append(min2phase.length());
+                        }
+                        record("min2phase-next", java.toString().equals(f[2]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-error": {
+                        String java = min2phase.solution(f[1], 21, 100000, 0, 0);
+                        record("min2phase-errors", java.equals(f[2]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-tools": {
+                        java.security.SecureRandom r = sha1prng(hexOf("tools-" + f[1]));
+                        cs.min2phase.Tools.setRandomSource(r);
+                        StringBuilder java = new StringBuilder();
+                        for (int i = 0; i < 500; i++) {
+                            java.append(i == 0 ? "" : ",").append(toolsState(f[1], r));
+                        }
+                        record("min2phase-tools", java.toString().equals(f[2]), f[1]);
+                        break;
+                    }
+                    case "m2p-from-scramble": {
+                        String java = cs.min2phase.Tools.fromScramble(f[1]);
+                        record("min2phase-from-scramble", java.equals(f[2]), line + "\n      java: " + java);
                         break;
                     }
                     case "scramble": {
