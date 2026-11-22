@@ -476,7 +476,9 @@ public class CrossCheck {
             Puzzle puzzle = registry(e.getKey());
             List<Integer> java = new ArrayList<>();
             TreeSet<String> javaTokens = new TreeSet<>();
-            for (int i = 0; i < 4 * e.getValue().size(); i++) {
+            // A reference sample for the length table only; capped so a large
+            // JUDGE_COUNT does not make Java generate thousands of 3x3 scrambles.
+            for (int i = 0; i < Math.min(4 * e.getValue().size(), 200); i++) {
                 String s = puzzle.generateWcaScramble(r);
                 java.add(moveCount(s));
                 javaTokens.addAll(Arrays.asList(s.trim().split("\\s+")));
