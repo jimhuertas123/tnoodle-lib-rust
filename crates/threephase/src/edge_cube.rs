@@ -4,7 +4,7 @@
 //! Represents the 24 edge positions of a 4×4×4 Rubik's cube.
 //! Edges come in 12 pairs (two stickers each), so there are 24 edge slots.
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 use crate::moves;
 use crate::util::{parity, swap_u8};
@@ -27,12 +27,30 @@ pub const EDGE_COLOR: [[usize; 2]; 12] = [
 
 /// Edge facelet map: maps the 24 edge positions to 54-facelet indices.
 pub const EDGE_MAP: [u8; 24] = [
-    moves::F2, moves::L2, moves::B2, moves::R2,
-    moves::B8, moves::L8, moves::F8, moves::R8,
-    moves::F4, moves::B6, moves::B4, moves::F6,
-    moves::U8, moves::U4, moves::U2, moves::U6,
-    moves::D8, moves::D4, moves::D2, moves::D6,
-    moves::L6, moves::L4, moves::R6, moves::R4,
+    moves::F2,
+    moves::L2,
+    moves::B2,
+    moves::R2,
+    moves::B8,
+    moves::L8,
+    moves::F8,
+    moves::R8,
+    moves::F4,
+    moves::B6,
+    moves::B4,
+    moves::F6,
+    moves::U8,
+    moves::U4,
+    moves::U2,
+    moves::U6,
+    moves::D8,
+    moves::D4,
+    moves::D2,
+    moves::D6,
+    moves::L6,
+    moves::L4,
+    moves::R6,
+    moves::R4,
 ];
 
 /// 4×4×4 edge cube state: 24 edge positions, each storing a value 0..23.
@@ -59,10 +77,10 @@ impl EdgeCube {
     }
 
     /// Create a random edge permutation.
-    pub fn new_random(rng: &mut impl Rng) -> Self {
+    pub fn new_random(rng: &mut JavaRandom) -> Self {
         let mut cube = Self::new();
         for i in 0..23 {
-            let t = i + rng.random_range(0..(24 - i));
+            let t = i + rng.next_index(24 - i);
             if t != i {
                 cube.ep.swap(i, t);
             }
@@ -71,6 +89,7 @@ impl EdgeCube {
     }
 
     /// Create an edge cube by applying a move sequence to the solved state.
+    #[must_use]
     pub fn from_moves(moveseq: &[usize]) -> Self {
         let mut cube = Self::new();
         for &m in moveseq {
@@ -80,6 +99,7 @@ impl EdgeCube {
     }
 
     /// Get the parity of the edge permutation (0 = even, 1 = odd).
+    #[must_use]
     pub fn get_parity(&self) -> i32 {
         parity(&self.ep)
     }
@@ -105,6 +125,7 @@ impl EdgeCube {
     /// split between the two halves is even.
     ///
     /// Returns `true` if the edge state is valid.
+    #[must_use]
     pub fn check_edge(&self) -> bool {
         let mut ck: i32 = 0;
         let mut par = false;

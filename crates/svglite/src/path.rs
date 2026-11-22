@@ -84,7 +84,10 @@ mod tests {
     #[test]
     fn triangle_path() {
         let mut p = Path::new();
-        p.move_to(0.0, 0.0).line_to(10.0, 0.0).line_to(5.0, 10.0).close();
+        p.move_to(0.0, 0.0)
+            .line_to(10.0, 0.0)
+            .line_to(5.0, 10.0)
+            .close();
         assert_eq!(p.to_d_string(), "M 0 0 L 10 0 L 5 10 Z");
     }
 }

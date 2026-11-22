@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::hash::Hash;
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 use tnoodle_svglite::{Color, Dimension, Svg};
 
 use crate::algorithm_builder::{AlgorithmBuilder, MergingMode};
@@ -49,6 +49,15 @@ pub trait PuzzleState: Clone + Eq + Hash + Send + Sync + Sized {
             .collect()
     }
 
+    /// The names of [`Self::scramble_successors`] in the order Java's
+    /// `LinkedHashMap` returns them, which decides the random-turn scrambles a
+    /// seed gives. Default: sorted by name.
+    fn scramble_successor_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.scramble_successors().into_keys().collect();
+        names.sort();
+        names
+    }
+
     /// Canonical (deduplicated) successors: maps state -> move name,
     /// filtering out states that are equivalent under normalization.
     fn canonical_moves_by_state(&self) -> HashMap<Self, String> {
@@ -68,6 +77,7 @@ pub trait PuzzleState: Clone + Eq + Hash + Send + Sync + Sized {
 
     /// Canonical representative of this state. All rotations of the same
     /// physical state should return the same normalized form.
+    #[must_use]
     fn get_normalized(&self) -> Self {
         self.clone()
     }
@@ -89,6 +99,10 @@ pub trait PuzzleState: Clone + Eq + Hash + Send + Sync + Sized {
     }
 
     /// Apply a single move, returning the new state.
+    ///
+    /// # Errors
+    ///
+    /// [`PuzzleError::InvalidMove`] for a move this puzzle does not have.
     fn apply(&self, mv: &str) -> Result<Self, PuzzleError> {
         self.successors_by_name()
             .remove(mv)
@@ -96,12 +110,16 @@ pub trait PuzzleState: Clone + Eq + Hash + Send + Sync + Sized {
     }
 
     /// Apply a space-separated sequence of moves.
+    ///
+    /// # Errors
+    ///
+    /// [`PuzzleError::InvalidMove`] for the first move this puzzle does not have.
     fn apply_algorithm(&self, algorithm: &str) -> Result<Self, PuzzleError> {
         let mut state = self.clone();
         for mv in split_algorithm(algorithm) {
-            state = state.apply(mv).map_err(|_| {
-                PuzzleError::InvalidScramble(algorithm.to_string())
-            })?;
+            state = state
+                .apply(mv)
+                .map_err(|_| PuzzleError::InvalidScramble(algorithm.to_string()))?;
         }
         Ok(state)
     }
@@ -145,34 +163,29 @@ pub trait Puzzle: Send + Sync {
     /// Generate a random move sequence. Override for solver-based puzzles
     /// (3x3, 4x4, Square-1, etc.) that use their own random state generators.
     ///
-    /// Default: builds a random-turn scramble using `AlgorithmBuilder`.
-    fn generate_random_moves(
-        &self,
-        rng: &mut (impl Rng + ?Sized),
-    ) -> PuzzleStateAndGenerator<Self::State> {
+    /// Port of `Puzzle.generateRandomMoves`: a random-turn scramble, choosing
+    /// each move like Java's `choose` and dropping redundant ones.
+    fn generate_random_moves(&self, rng: &mut JavaRandom) -> PuzzleStateAndGenerator<Self::State> {
         let mut ab = AlgorithmBuilder::new(MergingMode::NoMerging, self.solved_state());
-
         while ab.total_cost() < self.random_move_count() {
-            let mut successors = ab.state().scramble_successors();
+            let mut names = ab.state().scramble_successor_names();
             loop {
-                if successors.is_empty() {
+                let mv = choose(rng, &names);
+                names.retain(|name| *name != mv);
+                if !ab.is_redundant(&mv) {
+                    ab.append_move(&mv)
+                        .expect("move from successors should be valid");
                     break;
                 }
-                let mv = choose_from_keys(rng, &successors);
-                if ab.is_redundant(&mv) {
-                    successors.remove(&mv);
-                    continue;
-                }
-                ab.append_move(&mv).expect("move from successors should be valid");
-                break;
             }
         }
         ab.into_state_and_generator()
     }
 
     /// Generate a single WCA-legal scramble. Rejects scrambles solvable in
-    /// fewer than `wca_min_scramble_distance` moves.
-    fn generate_wca_scramble(&self, rng: &mut (impl Rng + ?Sized)) -> String {
+    /// fewer than `wca_min_scramble_distance` moves. Port of
+    /// `Puzzle.generateWcaScramble`.
+    fn generate_wca_scramble(&self, rng: &mut JavaRandom) -> String {
         loop {
             let psag = self.generate_random_moves(rng);
             let min_dist = self.wca_min_scramble_distance();
@@ -187,6 +200,10 @@ pub trait Puzzle: Send + Sync {
     }
 
     /// Draw a scramble as SVG.
+    ///
+    /// # Errors
+    ///
+    /// [`PuzzleError::InvalidMove`] when the scramble has a move this puzzle does not have.
     fn draw_scramble(
         &self,
         scramble: &str,
@@ -220,6 +237,15 @@ pub struct PuzzleStateAndGenerator<S> {
 /// Returns `None` if no such solution exists.
 ///
 /// Port of Java's `Puzzle.solveIn()`.
+///
+/// # Panics
+///
+/// If a state on the search frontier is missing from the map that recorded it,
+/// which would be a bug in this function.
+#[allow(
+    clippy::too_many_lines,
+    reason = "kept in one piece to mirror the Java method"
+)]
 pub fn solve_in<P: Puzzle + ?Sized>(puzzle: &P, ps: &P::State, n: i32) -> Option<String> {
     if puzzle.is_solved(ps) {
         return Some(String::new());
@@ -340,7 +366,7 @@ pub fn solve_in<P: Puzzle + ?Sized>(puzzle: &P, ps: &P::State, n: i32) -> Option
         while d > 0 {
             let moves = state.canonical_moves_by_state();
             let mut found = false;
-            for (next, _) in &moves {
+            for next in moves.keys() {
                 let next_norm = next.get_normalized();
                 if let Some(&nd) = seen_scrambled.get(&next_norm) {
                     if nd < d {
@@ -444,6 +470,7 @@ impl<S> SortedBuckets<S> {
 // ---------------------------------------------------------------------------
 
 /// Split a scramble algorithm string into individual moves.
+#[must_use]
 pub fn split_algorithm(algorithm: &str) -> Vec<&str> {
     let trimmed = algorithm.trim();
     if trimmed.is_empty() {
@@ -452,12 +479,21 @@ pub fn split_algorithm(algorithm: &str) -> Vec<&str> {
     trimmed.split_whitespace().collect()
 }
 
-/// Pick a random key from a HashMap.
-pub fn choose_from_keys<V>(rng: &mut (impl Rng + ?Sized), map: &HashMap<String, V>) -> String {
-    let keys: Vec<&String> = map.keys().collect();
-    debug_assert!(!keys.is_empty(), "choose from empty map");
-    let idx = rng.random_range(0..keys.len());
-    keys[idx].clone()
+/// Pick a random key from a `HashMap`.
+/// Port of `Puzzle.choose`: reservoir sampling in iteration order, one
+/// `nextInt` draw per element.
+///
+/// # Panics
+///
+/// If `names` is empty, where Java fails with a `NullPointerException`.
+pub fn choose(rng: &mut JavaRandom, names: &[String]) -> String {
+    let mut chosen = None;
+    for (count, name) in names.iter().enumerate() {
+        if rng.next_index(count + 1) == 0 {
+            chosen = Some(name);
+        }
+    }
+    chosen.expect("choose from no moves").clone()
 }
 
 #[cfg(test)]

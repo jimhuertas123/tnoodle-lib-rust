@@ -1,11 +1,24 @@
 //! Properties every generated scramble must satisfy, mirroring the checks in
 //! Java's `HugeScrambleTest`, `AlgorithmBuilderTest` and the per-puzzle tests.
 
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_lossless,
+    clippy::many_single_char_names,
+    clippy::type_complexity,
+    clippy::format_collect,
+    clippy::too_many_lines,
+    clippy::items_after_statements,
+    reason = "a table of test cases"
+)]
+
 use std::collections::HashSet;
 
 use tnoodle_scrambles::puzzles::cube_puzzle::{CubePuzzle, CubeState};
 use tnoodle_scrambles::{
-    AlgorithmBuilder, MergingMode, Puzzle, PuzzleState, PuzzleType, generate_scramble, puzzle::solve_in,
+    AlgorithmBuilder, JavaRandom, MergingMode, Puzzle, PuzzleState, PuzzleType, ScrambleOptions,
+    SearchBudget, generate_wca_scramble, puzzle::solve_in,
 };
 
 const SCRAMBLES_PER_PUZZLE: usize = 30;
@@ -46,14 +59,21 @@ fn axis(mv: &str) -> usize {
 
 #[test]
 fn cube_scrambles_are_valid_canonical_and_far_from_solved() {
-    let mut rng = rand::rng();
+    let mut rng = JavaRandom::from_entropy();
+    // Validity and distribution do not depend on the 3x3 search budget.
+    let fast = ScrambleOptions {
+        search_budget: SearchBudget::Probes {
+            min: 0,
+            max: 60_000,
+        },
+    };
     for &puzzle_type in PuzzleType::ALL {
         let Some((size, min_distance, is_reorientation)) = cube_event(puzzle_type) else {
             continue;
         };
         let puzzle = CubePuzzle::new(size);
         for _ in 0..SCRAMBLES_PER_PUZZLE {
-            let scramble = generate_scramble(puzzle_type, &mut rng);
+            let scramble = generate_wca_scramble(puzzle_type, &mut rng, &fast);
             let name = puzzle_type.short_name();
 
             // Valid moves, and not solvable in fewer than the WCA minimum.
@@ -71,15 +91,21 @@ fn cube_scrambles_are_valid_canonical_and_far_from_solved() {
             // must not change it: no move cancels or merges with an earlier
             // move it commutes with, so no `R R`, `R L R`, `U D U'`, `Lw` on 4x4...
             let moves: Vec<&str> = scramble.split_whitespace().collect();
-            let suffix = moves.iter().rev().take_while(|m| is_reorientation(m)).count();
+            let suffix = moves
+                .iter()
+                .rev()
+                .take_while(|m| is_reorientation(m))
+                .count();
             let core = moves[..moves.len() - suffix].join(" ");
-            let mut ab = AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(size));
+            let mut ab =
+                AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(size));
             ab.append_algorithm(&core).unwrap();
             assert_eq!(ab.to_string(), core, "{name} scramble is not canonical");
 
             let core_moves = &moves[..moves.len() - suffix];
             for w in core_moves.windows(3) {
-                let same_face = w[0].trim_end_matches(['2', '\'']) == w[2].trim_end_matches(['2', '\'']);
+                let same_face =
+                    w[0].trim_end_matches(['2', '\'']) == w[2].trim_end_matches(['2', '\'']);
                 assert!(
                     !(same_face && axis(w[0]) == axis(w[1])),
                     "{name} redundant {} {} {}: {scramble}",
@@ -99,7 +125,10 @@ fn cube_scrambles_are_valid_canonical_and_far_from_solved() {
                 }
             }
             if size == 3 && puzzle_type != PuzzleType::ThreeFm {
-                assert!(core_moves.len() <= 21, "{name} longer than 21 moves: {scramble}");
+                assert!(
+                    core_moves.len() <= 21,
+                    "{name} longer than 21 moves: {scramble}"
+                );
             }
         }
     }
@@ -108,12 +137,19 @@ fn cube_scrambles_are_valid_canonical_and_far_from_solved() {
 #[test]
 fn every_puzzle_generates_scrambles() {
     // Port of HugeScrambleTest.testNames plus a smoke test for each puzzle.
-    let mut rng = rand::rng();
+    let mut rng = JavaRandom::from_entropy();
+    // Validity and distribution do not depend on the 3x3 search budget.
+    let fast = ScrambleOptions {
+        search_budget: SearchBudget::Probes {
+            min: 0,
+            max: 60_000,
+        },
+    };
     let names: HashSet<&str> = PuzzleType::ALL.iter().map(PuzzleType::short_name).collect();
     assert_eq!(names.len(), PuzzleType::ALL.len());
     for &puzzle_type in PuzzleType::ALL {
         for _ in 0..5 {
-            let scramble = generate_scramble(puzzle_type, &mut rng);
+            let scramble = generate_wca_scramble(puzzle_type, &mut rng, &fast);
             assert!(!scramble.trim().is_empty(), "{}", puzzle_type.short_name());
         }
     }

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/random",
     "crates/svglite",
     "crates/min2phase",
     "crates/threephase",

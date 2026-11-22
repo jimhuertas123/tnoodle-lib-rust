@@ -11,7 +11,7 @@
 use std::sync::LazyLock;
 
 use crate::center_cube::CenterCube;
-use crate::util::{swap_i32, CNK};
+use crate::util::{CNK, swap_i32};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -24,10 +24,7 @@ pub const N_CT: usize = 35 * 35 * 12 * 2; // 29400
 pub const N_MOVES: usize = 20;
 
 /// Parity contribution of each of the 20 phase-3 moves.
-const PMOVE: [i32; 20] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
-];
+const PMOVE: [i32; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1];
 
 /// Maps the 12 valid RL combination indices to their standard C(8,4) indices.
 const RL2STD: [i32; 12] = [0, 9, 14, 23, 27, 28, 41, 42, 46, 55, 60, 69];
@@ -81,11 +78,7 @@ impl Center3 {
         let a = (c.ct[0] % 3) as i32;
         let b = (c.ct[8] % 3) as i32;
         let d = (c.ct[16] % 3) as i32;
-        let parity = if (a > b) ^ (b > d) ^ (a > d) {
-            0
-        } else {
-            1
-        };
+        let parity = if (a > b) ^ (b > d) ^ (a > d) { 0 } else { 1 };
 
         for i in 0..8 {
             self.ud[i] = ((c.ct[i] as i32 / 3) ^ 1) as i32;
@@ -348,10 +341,7 @@ mod tests {
     fn test_move_table_populated() {
         let tables = &*TABLES;
         // At least one non-zero entry
-        let has_nonzero = tables
-            .ctmove
-            .iter()
-            .any(|row| row.iter().any(|&v| v != 0));
+        let has_nonzero = tables.ctmove.iter().any(|row| row.iter().any(|&v| v != 0));
         assert!(has_nonzero, "move table should have non-zero entries");
     }
 }

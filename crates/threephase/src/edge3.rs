@@ -18,8 +18,7 @@ pub const N_EPRUN: usize = N_SYM * N_RAW;
 pub const MAX_DEPTH: usize = 10;
 
 pub const PRUN_VALUES: [u32; 14] = [
-    1, 4, 16, 55, 324, 1922, 12275, 77640, 485359, 2778197, 11742425, 27492416, 31002941,
-    31006080,
+    1, 4, 16, 55, 324, 1922, 12275, 77640, 485359, 2778197, 11742425, 27492416, 31002941, 31006080,
 ];
 
 pub const FULL_EDGE_MAP: [usize; 12] = [0, 2, 4, 6, 1, 3, 7, 5, 8, 9, 10, 11];
@@ -174,8 +173,8 @@ fn create_prun(t: &mut Edge3Tables) {
                     let symcord1x_full = t.raw2sym[cord1x as usize];
                     let symx = (symcord1x_full & 0x7) as usize;
                     let symcord1x = (symcord1x_full >> 3) as usize;
-                    let cord2x =
-                        getmvrot_with(&e.edge, (m << 3) | symx, 10, &t.mvrot, &t.mvroto) % (N_RAW as i32);
+                    let cord2x = getmvrot_with(&e.edge, (m << 3) | symx, 10, &t.mvrot, &t.mvroto)
+                        % (N_RAW as i32);
                     let idx = symcord1x * N_RAW + cord2x as usize;
                     if get_pruning(&t.eprun, idx) != chk {
                         continue;

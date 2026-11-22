@@ -1,19 +1,22 @@
 [package]
 name = "tnoodle-scrambles"
-version = "0.1.0"
+version = "0.20.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Core WCA scramble generation library - Rust port of tnoodle-lib"
 
 [dependencies]
-rand = { workspace = true }
-rand_chacha = { workspace = true }
+tnoodle-random = { path = "../random" }
 tnoodle-svglite = { path = "../svglite" }
 tnoodle-min2phase = { path = "../min2phase" }
 tnoodle-threephase = { path = "../threephase" }
 tnoodle-sq12phase = { path = "../sq12phase" }
 tnoodle-solvers = { path = "../solvers" }
+
+[dev-dependencies]
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 
 [lints]
 workspace = true

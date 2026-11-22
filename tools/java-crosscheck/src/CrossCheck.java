@@ -39,8 +39,9 @@ public class CrossCheck {
     /** Per check: cases seen, cases that differ, and the first few differences. */
     private static final Map<String, int[]> counts = new LinkedHashMap<>();
     private static final Map<String, List<String>> examples = new LinkedHashMap<>();
-    /** Checks that only inform: inputs the scramble generators never produce. */
-    private static final List<String> informational = Arrays.asList("canonrot", "svgrot", "333solve-same-as-java");
+    /** Checks with an intentional difference, read from the `Check` column of PARITY.md. */
+    private static final java.util.Set<String> expected = new java.util.HashSet<>();
+    private static final Pattern PARITY_ROW = Pattern.compile("^\\|\\s*`([a-z0-9-]+)`\\s*\\|");
 
     private static final Map<String, List<Integer>> rustLengths = new LinkedHashMap<>();
     private static final Map<String, TreeSet<String>> rustTokens = new LinkedHashMap<>();
@@ -55,6 +56,50 @@ public class CrossCheck {
                 ex.add(detail);
             }
         }
+    }
+
+    /** A fresh {@code SHA1PRNG} seeded with the hex-encoded bytes, as tnoodle seeds it. */
+    private static java.security.SecureRandom sha1prng(String hexSeed) throws Exception {
+        byte[] seed = new byte[hexSeed.length() / 2];
+        for (int i = 0; i < seed.length; i++) {
+            seed[i] = (byte) Integer.parseInt(hexSeed.substring(2 * i, 2 * i + 2), 16);
+        }
+        java.security.SecureRandom r = java.security.SecureRandom.getInstance("SHA1PRNG", "SUN");
+        r.setSeed(seed);
+        return r;
+    }
+
+    private static String hexOf(String s) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : s.getBytes(java.nio.charset.StandardCharsets.UTF_8)) hex.append(String.format("%02x", b));
+        return hex.toString();
+    }
+
+    private static String toolsState(String name, java.util.Random r) {
+        switch (name) {
+            case "randomCube": return cs.min2phase.Tools.randomCube(r);
+            case "randomLastLayer": return cs.min2phase.Tools.randomLastLayer();
+            case "randomLastSlot": return cs.min2phase.Tools.randomLastSlot();
+            case "randomZBLastLayer": return cs.min2phase.Tools.randomZBLastLayer();
+            case "randomCornerOfLastLayer": return cs.min2phase.Tools.randomCornerOfLastLayer();
+            case "randomEdgeOfLastLayer": return cs.min2phase.Tools.randomEdgeOfLastLayer();
+            case "randomCrossSolved": return cs.min2phase.Tools.randomCrossSolved();
+            case "randomEdgeSolved": return cs.min2phase.Tools.randomEdgeSolved();
+            case "randomCornerSolved": return cs.min2phase.Tools.randomCornerSolved();
+            case "superFlip": return cs.min2phase.Tools.superFlip();
+            default: throw new IllegalArgumentException(name);
+        }
+    }
+
+    /** The solver coordinates a Skewb or Pyraminx scramble reaches, in Java's model. */
+    private static String solverState(String shortName, Puzzle puzzle, String scramble) throws Exception {
+        PuzzleState state = puzzle.getSolvedState().applyAlgorithm(scramble);
+        if (shortName.equals("skewb")) {
+            SkewbSolver.SkewbSolverState s = ((SkewbPuzzle.SkewbState) state).toSkewbSolverState();
+            return s.perm + "," + s.twst;
+        }
+        PyraminxSolver.PyraminxSolverState s = ((PyraminxPuzzle.PyraminxState) state).toPyraminxSolverState();
+        return s.edgePerm + "," + s.edgeOrient + "," + s.cornerOrient + "," + s.tips;
     }
 
     private static String orNone(String s) {
@@ -122,6 +167,14 @@ public class CrossCheck {
     }
 
     public static void main(String[] args) throws Exception {
+        if (args.length > 1) {
+            for (String row : java.nio.file.Files.readAllLines(java.nio.file.Paths.get(args[1]))) {
+                Matcher m = PARITY_ROW.matcher(row);
+                if (m.find()) {
+                    expected.add(m.group(1));
+                }
+            }
+        }
         CubePuzzle[] cubes = new CubePuzzle[8];
         for (int size = 2; size <= 7; size++) {
             cubes[size] = new CubePuzzle(size);
@@ -131,13 +184,56 @@ public class CrossCheck {
         PyraminxSolver pyraSolver = new PyraminxSolver();
         SkewbPuzzle skewb = new SkewbPuzzle();
         PyraminxPuzzle pyra = new PyraminxPuzzle();
-        cs.min2phase.Search twoPhase = new cs.min2phase.Search();
+        // Rust always uses fully built tables; Java builds them fully on Search.init(),
+        // which SearchWCA and threephase call too (PARITY.md).
+        cs.min2phase.Search.init();
+        cs.min2phase.Search min2phase = new cs.min2phase.Search();
+        cs.min2phase.SearchWCA min2phaseWca = new cs.min2phase.SearchWCA();
 
         try (BufferedReader in = new BufferedReader(new FileReader(args[0]))) {
             String line;
             while ((line = in.readLine()) != null) {
                 String[] f = line.split("\t", -1);
                 switch (f[0]) {
+                    case "m2p-table": {
+                        String java = cs.min2phase.TableHashes.all().get(f[1]);
+                        record("min2phase-tables", f[2].equals(java), f[1] + " java " + java + " rust " + f[2]);
+                        break;
+                    }
+                    case "jr-bounded": {
+                        java.security.SecureRandom r = sha1prng(f[1]);
+                        int bound = Integer.parseInt(f[2]);
+                        StringBuilder java = new StringBuilder();
+                        for (int i = 0; i < 1000; i++) {
+                            java.append(i == 0 ? "" : ",").append(r.nextInt(bound));
+                        }
+                        record("javarandom-next-int-bounded", java.toString().equals(f[3]),
+                                "seed " + f[1] + " bound " + bound);
+                        break;
+                    }
+                    case "jr-other": {
+                        java.security.SecureRandom r = sha1prng(f[1]);
+                        StringBuilder java = new StringBuilder();
+                        for (int i = 0; i < 1000; i++) {
+                            java.append(i == 0 ? "" : ",");
+                            switch (f[2]) {
+                                case "int": java.append(r.nextInt()); break;
+                                case "long": java.append(r.nextLong()); break;
+                                case "boolean": java.append(r.nextBoolean()); break;
+                                case "double": java.append(String.format("%016x", Double.doubleToLongBits(r.nextDouble()))); break;
+                                case "bytes": {
+                                    byte[] b = new byte[37];
+                                    r.nextBytes(b);
+                                    for (byte x : b) java.append(String.format("%02x", x));
+                                    break;
+                                }
+                                default: throw new IllegalArgumentException(f[2]);
+                            }
+                        }
+                        record("javarandom-other-methods", java.toString().equals(f[3]),
+                                "seed " + f[1] + " method " + f[2]);
+                        break;
+                    }
                     case "canon":
                     case "canonrot": {
                         int size = Integer.parseInt(f[1]);
@@ -256,15 +352,75 @@ public class CrossCheck {
                         record("sq1-solution-opt", optimal.equals(f[7].trim()), line + "\n      java: " + optimal);
                         break;
                     }
-                    case "333solve": {
-                        String facelets = f[1];
-                        String rust = f[2];
-                        boolean valid = !rust.startsWith("ERR")
-                                && cs.min2phase.Tools.fromScramble(rust).equals(facelets)
-                                && moveCount(rust) <= 21;
-                        record("333solve-reaches-state", valid, line);
-                        String java = twoPhase.solution(facelets, 21, 1000000, 0, cs.min2phase.Search.INVERSE_SOLUTION).trim();
-                        record("333solve-same-as-java", java.equals(rust), line + "\n      java: " + java);
+                    case "m2p-search":
+                    case "m2p-opt": {
+                        String java = min2phase.solution(f[1], Integer.parseInt(f[2]), Long.parseLong(f[3]),
+                                Long.parseLong(f[4]), Integer.parseInt(f[5]));
+                        String check = f[0].equals("m2p-opt") ? "min2phase-search-optimal" : "min2phase-search";
+                        record(check, java.equals(f[6]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-wca": {
+                        String first = f[2].equals(NONE) ? null : f[2];
+                        String last = f[3].equals(NONE) ? null : f[3];
+                        String java = min2phaseWca.solution(f[1], 21, 60000, 0, cs.min2phase.Search.INVERSE_SOLUTION, first, last);
+                        record("min2phase-search-wca", java.equals(f[4]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-next": {
+                        StringBuilder java = new StringBuilder(min2phase.solution(f[1], 21, 100000, 0, 0));
+                        java.append("|").append(min2phase.numberOfProbes()).append("/").append(min2phase.length());
+                        for (int i = 0; i < 3; i++) {
+                            java.append("|").append(min2phase.next(100000, 0, 0));
+                            java.append("|").append(min2phase.numberOfProbes()).append("/").append(min2phase.length());
+                        }
+                        record("min2phase-next", java.toString().equals(f[2]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-error": {
+                        String java = min2phase.solution(f[1], 21, 100000, 0, 0);
+                        record("min2phase-errors", java.equals(f[2]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "m2p-tools": {
+                        java.security.SecureRandom r = sha1prng(hexOf("tools-" + f[1]));
+                        cs.min2phase.Tools.setRandomSource(r);
+                        StringBuilder java = new StringBuilder();
+                        for (int i = 0; i < 500; i++) {
+                            java.append(i == 0 ? "" : ",").append(toolsState(f[1], r));
+                        }
+                        record("min2phase-tools", java.toString().equals(f[2]), f[1]);
+                        break;
+                    }
+                    case "m2p-from-scramble": {
+                        String java = cs.min2phase.Tools.fromScramble(f[1]);
+                        record("min2phase-from-scramble", java.equals(f[2]), line + "\n      java: " + java);
+                        break;
+                    }
+                    case "seeded": {
+                        String shortName = f[1];
+                        String seed = f[2];
+                        String[] rust = f[3].replace("\\n", "\n").split("\\|\\|", -1);
+                        if (shortName.matches("333(ni|fm)?")) {
+                            String[] java = org.worldcubeassociation.tnoodle.puzzle.SeededThreeByThree.scrambles(shortName, seed, 20);
+                            record("seeded-three-family", Arrays.equals(java, rust),
+                                    shortName + " seed '" + seed + "'\n      java: " + Arrays.toString(java) + "\n      rust: " + Arrays.toString(rust));
+                            break;
+                        }
+                        Puzzle puzzle = registry(shortName);
+                        String[] java = puzzle.generateSeededScrambles(seed, 20);
+                        if (shortName.equals("skewb") || shortName.equals("pyram")) {
+                            boolean same = f[3].equals(f[4]);
+                            for (int i = 0; i < 20 && same; i++) {
+                                same = moveCount(java[i]) == moveCount(rust[i])
+                                        && solverState(shortName, puzzle, java[i]).equals(solverState(shortName, puzzle, rust[i]));
+                            }
+                            record("seeded-skewb-pyram", same, shortName + " seed '" + seed + "'\n      java: "
+                                    + Arrays.toString(java) + "\n      rust: " + Arrays.toString(rust));
+                            break;
+                        }
+                        record("seeded-identical", Arrays.equals(java, rust),
+                                shortName + " seed '" + seed + "'\n      java: " + Arrays.toString(java) + "\n      rust: " + Arrays.toString(rust));
                         break;
                     }
                     case "scramble": {
@@ -306,9 +462,9 @@ public class CrossCheck {
         boolean failed = false;
         System.out.println("check                           cases  differ");
         for (Map.Entry<String, int[]> e : counts.entrySet()) {
-            boolean info = informational.contains(e.getKey());
-            String status = e.getValue()[1] == 0 ? "OK" : info ? "info" : "FAIL";
-            failed |= e.getValue()[1] != 0 && !info;
+            boolean listed = expected.contains(e.getKey());
+            String status = e.getValue()[1] == 0 ? "OK" : listed ? "expected" : "FAIL";
+            failed |= e.getValue()[1] != 0 && !listed;
             System.out.printf("%-30s %6d %7d  %s%n", e.getKey(), e.getValue()[0], e.getValue()[1], status);
         }
 
@@ -320,7 +476,9 @@ public class CrossCheck {
             Puzzle puzzle = registry(e.getKey());
             List<Integer> java = new ArrayList<>();
             TreeSet<String> javaTokens = new TreeSet<>();
-            for (int i = 0; i < 4 * e.getValue().size(); i++) {
+            // A reference sample for the length table only; capped so a large
+            // JUDGE_COUNT does not make Java generate thousands of 3x3 scrambles.
+            for (int i = 0; i < Math.min(4 * e.getValue().size(), 200); i++) {
                 String s = puzzle.generateWcaScramble(r);
                 java.add(moveCount(s));
                 javaTokens.addAll(Arrays.asList(s.trim().split("\\s+")));

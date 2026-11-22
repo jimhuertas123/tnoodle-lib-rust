@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 use crate::center_cube::CenterCube;
 use crate::full_cube::CENTER_FACELET;
 use crate::moves;
-use crate::util::{swap_u8, CNK};
+use crate::util::{CNK, swap_u8};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -20,7 +20,7 @@ use crate::util::{swap_u8, CNK};
 pub const N_SYM: usize = 15582;
 
 /// Total number of raw center-1 states (C(24,8) = 735471).
-pub const N_RAW: usize = 735471;
+pub const N_RAW: usize = 735_471;
 
 /// Number of symmetries (full octahedral group).
 pub const N_SYM_GROUP: usize = 48;
@@ -39,7 +39,7 @@ pub struct Tables {
     /// Pruning table (depth for each sym coordinate).
     pub csprun: Vec<i8>,
 
-    /// Symmetry multiplication table: `symmult[i][j] = k` means sym_i * sym_j = sym_k.
+    /// Symmetry multiplication table: `symmult[i][j] = k` means `sym_i` * `sym_j` = `sym_k`.
     pub symmult: [[i32; N_SYM_GROUP]; N_SYM_GROUP],
     /// Symmetry-conjugated move table: `symmove[sym][move] = move'`.
     pub symmove: [[i32; 36]; N_SYM_GROUP],
@@ -48,7 +48,7 @@ pub struct Tables {
     /// Finish (solved state under each inverse symmetry).
     pub finish: [i32; N_SYM_GROUP],
 
-    /// Maps raw index -> (sym_reduced_index << 6 | sym).
+    /// Maps raw index -> (`sym_reduced_index` << 6 | sym).
     pub raw2sym: Vec<i32>,
 }
 
@@ -71,6 +71,7 @@ impl Default for Center1 {
 
 impl Center1 {
     /// Solved state: first 8 centers = 1, rest = 0.
+    #[must_use]
     pub fn new() -> Self {
         let mut ct = [0u8; 24];
         for i in 0..8 {
@@ -80,15 +81,17 @@ impl Center1 {
     }
 
     /// Construct from a raw byte array.
+    #[must_use]
     pub fn from_ct(ct: [u8; 24]) -> Self {
         Self { ct }
     }
 
-    /// Construct from a CenterCube, extracting binary mask for one URF class.
+    /// Construct from a `CenterCube`, extracting binary mask for one URF class.
+    #[must_use]
     pub fn from_center_cube(c: &CenterCube, urf: u8) -> Self {
         let mut ct = [0u8; 24];
         for i in 0..24 {
-            ct[i] = if c.ct[i] % 3 == urf { 1 } else { 0 };
+            ct[i] = u8::from(c.ct[i] % 3 == urf);
         }
         Self { ct }
     }
@@ -176,6 +179,7 @@ impl Center1 {
     }
 
     /// Encode the ct array into a raw combinatorial index.
+    #[must_use]
     pub fn get(&self) -> i32 {
         let mut idx = 0i32;
         let mut r = 8i32;
@@ -239,13 +243,39 @@ impl Center1 {
     }
 
     /// Get the symmetry-reduced coordinate using the raw2sym lookup table.
-    /// Returns (sym_idx << 6 | symmetry).
+    /// Returns (`sym_idx` << 6 | symmetry).
+    #[must_use]
     pub fn getsym(&self, tables: &Tables) -> i32 {
         tables.raw2sym[self.get() as usize]
     }
 
+    /// Port of `Center1.getsym` as it runs during a search, after Java has
+    /// dropped `raw2sym`: rotates the centers until they reach a symmetry
+    /// representative and returns the first matching rotation (the table keeps
+    /// the last one, which differs for centers with symmetry).
+    pub fn getsym_search(&mut self, tables: &Tables) -> i32 {
+        for j in 0..48 {
+            let cord = Self::raw2sym_search(&tables.sym2raw, self.get());
+            if cord != -1 {
+                return cord * 64 + j;
+            }
+            self.rot(0);
+            if j % 2 == 1 {
+                self.rot(1);
+            }
+            if j % 8 == 7 {
+                self.rot(2);
+            }
+            if j % 16 == 15 {
+                self.rot(3);
+            }
+        }
+        -1
+    }
+
     /// Binary search for a raw index in the sym2raw table.
     /// Returns the sym-reduced index or -1 if not found.
+    #[must_use]
     pub fn raw2sym_search(sym2raw: &[i32], n: i32) -> i32 {
         match sym2raw.binary_search(&n) {
             Ok(m) => m as i32,
@@ -253,8 +283,9 @@ impl Center1 {
         }
     }
 
-    /// Determine which symmetry maps a solved CenterCube to its current state.
+    /// Determine which symmetry maps a solved `CenterCube` to its current state.
     /// Returns symmetry index 0..47, or -1 if none found.
+    #[must_use]
     pub fn get_solved_sym(cube: &CenterCube) -> i32 {
         let mut c = Center1::from_ct(cube.ct);
         for j in 0..48 {
@@ -285,12 +316,9 @@ impl Center1 {
 
 /// Rotation-to-string table (sparse -- many entries are empty).
 pub const ROT2STR: [&str; 48] = [
-    "",       "y2",     "x",      "x y2",   "x2",     "z2",     "x'",     "x' y2",
-    "",       "",       "",       "",       "",       "",       "",       "",
-    "y z",    "y' z'",  "y2 z",   "z'",     "y' z",   "y z'",   "z",      "z y2",
-    "",       "",       "",       "",       "",       "",       "",       "",
-    "y' x'",  "y x",    "y'",     "y",      "y' x",   "y x'",   "y z2",   "y' z2",
-    "",       "",       "",       "",       "",       "",       "",       "",
+    "", "y2", "x", "x y2", "x2", "z2", "x'", "x' y2", "", "", "", "", "", "", "", "", "y z",
+    "y' z'", "y2 z", "z'", "y' z", "y z'", "z", "z y2", "", "", "", "", "", "", "", "", "y' x'",
+    "y x", "y'", "y", "y' x", "y x'", "y z2", "y' z2", "", "", "", "", "", "", "", "",
 ];
 
 // ---------------------------------------------------------------------------
@@ -485,9 +513,8 @@ impl Tables {
                     if inv {
                         self.csprun[i] = depth;
                         break;
-                    } else {
-                        self.csprun[idx] = depth;
                     }
+                    self.csprun[idx] = depth;
                 }
             }
         }
@@ -518,9 +545,9 @@ mod tests {
     #[test]
     fn test_center1_set_get_roundtrip() {
         let mut c = Center1::new();
-        for idx in [0, 1, 100, 1000, 10000, 735470] {
+        for idx in [0, 1, 100, 1000, 10000, 735_470] {
             c.set(idx);
-            assert_eq!(c.get(), idx, "set/get roundtrip failed for idx={}", idx);
+            assert_eq!(c.get(), idx, "set/get roundtrip failed for idx={idx}");
         }
     }
 

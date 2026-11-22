@@ -7,8 +7,22 @@
 //! cargo test --release -p tnoodle-scrambles --test randomness -- --ignored --nocapture
 //! ```
 
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_lossless,
+    clippy::many_single_char_names,
+    clippy::type_complexity,
+    clippy::format_collect,
+    clippy::too_many_lines,
+    clippy::items_after_statements,
+    reason = "statistics over a few thousand counts, far below the precision limits; the single-letter names follow the formulas they implement"
+)]
+
 use tnoodle_min2phase::{tools, util};
-use tnoodle_scrambles::{PuzzleType, generate_scramble};
+use tnoodle_scrambles::{
+    JavaRandom, PuzzleType, ScrambleOptions, SearchBudget, generate_wca_scramble,
+};
 
 /// Java's `Distribution.minimumSampleSize()` is 6144; App.java uses 6500.
 const SCRAMBLE_COUNT: usize = 6500;
@@ -21,7 +35,7 @@ const TEST_COUNT: f64 = 1.0 + 12.0 + 1.0 + 8.0 + 1.0;
 /// Cubie view of a scramble: `ca[i] = (twist << 3) | corner`,
 /// `ea[i] = (edge << 1) | flip`, for the piece sitting at position `i`.
 fn cubies(scramble: &str) -> ([u8; 8], [u8; 12]) {
-    let facelets = tools::from_scramble(scramble);
+    let facelets = tools::from_scramble(scramble).expect("generated scrambles are valid moves");
     let mut f = [0u8; 54];
     for (i, c) in facelets.chars().enumerate() {
         f[i] = "URFDLB".find(c).unwrap() as u8;
@@ -183,7 +197,14 @@ fn statistics_helpers_match_known_values() {
 #[test]
 #[ignore = "slow: generates thousands of scrambles; run with --ignored"]
 fn three_by_three_states_are_uniformly_random() {
-    let mut rng = rand::rng();
+    let mut rng = JavaRandom::from_entropy();
+    // Validity and distribution do not depend on the 3x3 search budget.
+    let fast = ScrambleOptions {
+        search_budget: SearchBudget::Probes {
+            min: 0,
+            max: 60_000,
+        },
+    };
     let mut flipped_edges = [0u64; 7];
     let mut corner_twist_sums = [0u64; 6];
     let mut edge_positions = [[0u64; 12]; 12];
@@ -191,7 +212,7 @@ fn three_by_three_states_are_uniformly_random() {
     let mut odd_parity = 0;
 
     for _ in 0..SCRAMBLE_COUNT {
-        let scramble = generate_scramble(PuzzleType::Three, &mut rng);
+        let scramble = generate_wca_scramble(PuzzleType::Three, &mut rng, &fast);
         let (ca, ea) = cubies(&scramble);
 
         let flips = ea.iter().filter(|&&e| e & 1 == 1).count();
@@ -219,15 +240,30 @@ fn three_by_three_states_are_uniformly_random() {
         }
     };
 
-    check("edge orientation".into(), chi_square_p(&expected_edge_orientation(), &flipped_edges));
+    check(
+        "edge orientation".into(),
+        chi_square_p(&expected_edge_orientation(), &flipped_edges),
+    );
     for (edge, counts) in edge_positions.iter().enumerate() {
-        check(format!("edge {edge} final position"), chi_square_p(&[1.0 / 12.0; 12], counts));
+        check(
+            format!("edge {edge} final position"),
+            chi_square_p(&[1.0 / 12.0; 12], counts),
+        );
     }
-    check("corner orientation".into(), chi_square_p(&expected_corner_orientation(), &corner_twist_sums));
+    check(
+        "corner orientation".into(),
+        chi_square_p(&expected_corner_orientation(), &corner_twist_sums),
+    );
     for (corner, counts) in corner_positions.iter().enumerate() {
-        check(format!("corner {corner} final position"), chi_square_p(&[1.0 / 8.0; 8], counts));
+        check(
+            format!("corner {corner} final position"),
+            chi_square_p(&[1.0 / 8.0; 8], counts),
+        );
     }
-    check("permutation parity".into(), fair_coin_p(SCRAMBLE_COUNT, odd_parity));
+    check(
+        "permutation parity".into(),
+        fair_coin_p(SCRAMBLE_COUNT, odd_parity),
+    );
 
     assert!(failures.is_empty(), "not uniformly random: {failures:?}");
 }

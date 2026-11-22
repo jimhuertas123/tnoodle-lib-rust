@@ -1,4 +1,4 @@
-//! NxN cube puzzle model used for random-turn scrambles, move canonicalization
+//! `NxN` cube puzzle model used for random-turn scrambles, move canonicalization
 //! and scramble validation.
 //!
 //! Port of Java's `CubePuzzle` / `CubePuzzle.CubeState`. Stickers are stored in
@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 use tnoodle_svglite::{Color, Dimension, Svg};
 
 use crate::algorithm_builder::{AlgorithmBuilder, MergingMode};
@@ -32,6 +32,7 @@ const MAX_SIZE: usize = 11;
 
 /// Name of a move turning slices `0..=inner_slice` of `face`, or `None` for
 /// unnamed rotations. Port of Java's `CubeMove.toString`.
+#[must_use]
 pub fn move_name(size: usize, face: u8, dir: usize, inner_slice: usize) -> Option<String> {
     let f = FACE_NAMES[face as usize];
     let base = if inner_slice == 0 {
@@ -84,7 +85,11 @@ fn slice_perm(size: usize, face: u8, dir: usize, inner_slice: usize) -> Perm {
     let mut image: Vec<Vec<Vec<u16>>> = (0..NUM_FACES)
         .map(|f| {
             (0..size)
-                .map(|r| (0..size).map(|c| sticker_index(size, f, r, c) as u16).collect())
+                .map(|r| {
+                    (0..size)
+                        .map(|c| sticker_index(size, f, r, c) as u16)
+                        .collect()
+                })
                 .collect()
         })
         .collect();
@@ -106,8 +111,7 @@ impl CubeTables {
             for face in 0..NUM_FACES as u8 {
                 let half_of_even_cube = size % 2 == 0 && inner_slice == size / 2 - 1;
                 // Skip turning the other halves of even sized cubes.
-                let scramble_move =
-                    inner_slice < size / 2 && !(face >= 3 && half_of_even_cube);
+                let scramble_move = inner_slice < size / 2 && !(face >= 3 && half_of_even_cube);
                 for dir in 1..=3 {
                     let Some(name) = move_name(size, face, dir, inner_slice) else {
                         continue;
@@ -144,7 +148,12 @@ impl CubeTables {
         }
         debug_assert_eq!(rotations.len(), 24);
 
-        Self { moves, by_name, scramble_moves, rotations }
+        Self {
+            moves,
+            by_name,
+            scramble_moves,
+            rotations,
+        }
     }
 }
 
@@ -159,6 +168,7 @@ pub struct CubeState {
 }
 
 impl CubeState {
+    #[must_use]
     pub fn solved(size: usize) -> Self {
         let image = (0..NUM_FACES)
             .flat_map(|f| std::iter::repeat_n(f as u8, size * size))
@@ -186,6 +196,7 @@ impl CubeState {
     /// Sticker colors as face letters, faces in URFDLB order, each face in
     /// reading order. Port of Java's `CubeState.toFaceCube` (which only
     /// supports 3x3x3), generalized to any size.
+    #[must_use]
     pub fn to_face_cube(&self) -> String {
         let n = self.size;
         [U, R, F, D, L, B]
@@ -206,6 +217,15 @@ impl PuzzleState for CubeState {
             .moves
             .iter()
             .map(|(name, perm)| (name.clone(), self.permuted(perm)))
+            .collect()
+    }
+
+    /// Java's `getSuccessorsWithinSlice(size / 2 - 1, false)` order.
+    fn scramble_successor_names(&self) -> Vec<String> {
+        let t = tables(self.size);
+        t.scramble_moves
+            .iter()
+            .map(|&i| t.moves[i].0.clone())
             .collect()
     }
 
@@ -271,6 +291,12 @@ pub struct CubePuzzle {
 }
 
 impl CubePuzzle {
+    /// An `NxN` cube. Port of `new CubePuzzle(size)`.
+    ///
+    /// # Panics
+    ///
+    /// If `size` is not between 2 and 7, the sizes tnoodle supports.
+    #[must_use]
     pub fn new(size: usize) -> Self {
         assert!((2..=MAX_SIZE).contains(&size), "Invalid cube size");
         Self {
@@ -280,30 +306,52 @@ impl CubePuzzle {
         }
     }
 
+    #[must_use]
     pub fn size(&self) -> usize {
         self.size
     }
 
     /// The 24 ways to reorient the cube, as move names turning `thickness + 1`
     /// layers. Port of Java's `getRandomOrientationMoves`.
+    ///
+    /// # Panics
+    ///
+    /// If `thickness` is not below the cube size.
+    #[must_use]
     pub fn random_orientation_moves(&self, thickness: usize) -> Vec<Vec<String>> {
         let name = |face, dir| move_name(self.size, face, dir, thickness).expect("named move");
-        let u_face_moves = [None, Some((R, 1)), Some((R, 2)), Some((R, 3)), Some((F, 1)), Some((F, 3))];
+        let u_face_moves = [
+            None,
+            Some((R, 1)),
+            Some((R, 2)),
+            Some((R, 3)),
+            Some((F, 1)),
+            Some((F, 3)),
+        ];
         let f_face_moves = [None, Some((U, 1)), Some((U, 2)), Some((U, 3))];
         let mut orientations = Vec::with_capacity(24);
         for u in u_face_moves {
             for f in f_face_moves {
                 orientations.push(
-                    [u, f].into_iter().flatten().map(|(face, dir)| name(face, dir)).collect(),
+                    [u, f]
+                        .into_iter()
+                        .flatten()
+                        .map(|(face, dir)| name(face, dir))
+                        .collect(),
                 );
             }
         }
         orientations
     }
 
-    /// Port of Java's `applyOrientation` (NoInspection puzzles). With
+    /// Port of Java's `applyOrientation` (`NoInspection` puzzles). With
     /// `discard_redundant_moves`, scramble moves that the reorientation would
     /// cancel or merge with are dropped first.
+    ///
+    /// # Panics
+    ///
+    /// If `orientation` contains a move the cube does not have.
+    #[must_use]
     pub fn apply_orientation(
         &self,
         orientation: &[String],
@@ -314,7 +362,8 @@ impl CubePuzzle {
             return psag;
         };
         let mut ab = AlgorithmBuilder::new(MergingMode::NoMerging, self.solved_state());
-        ab.append_algorithm(&psag.generator).expect("generated scramble is valid");
+        ab.append_algorithm(&psag.generator)
+            .expect("generated scramble is valid");
         if discard_redundant_moves {
             while ab.is_redundant(first) {
                 let index = ab
@@ -333,12 +382,12 @@ impl CubePuzzle {
     /// Random-turn scramble with a random reorientation appended.
     pub fn generate_with_orientation(
         &self,
-        rng: &mut (impl Rng + ?Sized),
+        rng: &mut JavaRandom,
         thickness: usize,
         discard_redundant_moves: bool,
     ) -> PuzzleStateAndGenerator<CubeState> {
         let orientations = self.random_orientation_moves(thickness);
-        let orientation = &orientations[rng.random_range(0..orientations.len())];
+        let orientation = &orientations[rng.next_index(orientations.len())];
         let psag = self.generate_random_moves(rng);
         self.apply_orientation(orientation, psag, discard_redundant_moves)
     }
@@ -391,12 +440,18 @@ mod tests {
         // Port of AlgorithmBuilderTest.testRedundantMoves (first half).
         let sixes = CubeState::solved(6).scramble_successors();
         for mv in ["3Bw", "3Lw", "3Dw", "x"] {
-            assert!(sixes.keys().all(|m| !m.starts_with(mv)), "{mv} offered on 6x6");
+            assert!(
+                sixes.keys().all(|m| !m.starts_with(mv)),
+                "{mv} offered on 6x6"
+            );
         }
         assert!(sixes.contains_key("3Rw2"));
         let fours = CubeState::solved(4).scramble_successors();
         for mv in ["Lw", "Dw", "Bw"] {
-            assert!(fours.keys().all(|m| !m.starts_with(mv)), "{mv} offered on 4x4");
+            assert!(
+                fours.keys().all(|m| !m.starts_with(mv)),
+                "{mv} offered on 4x4"
+            );
         }
         assert_eq!(fours.len(), 6 * 3 + 3 * 3);
     }
@@ -405,8 +460,10 @@ mod tests {
     fn canonical_moves_match_java() {
         // From NoInspectionThreeByThreeTest / ThreeByThreeCubeFewestMovesTest.
         let names = |size| {
-            let mut v: Vec<String> =
-                CubeState::solved(size).canonical_moves_by_state().into_values().collect();
+            let mut v: Vec<String> = CubeState::solved(size)
+                .canonical_moves_by_state()
+                .into_values()
+                .collect();
             v.sort();
             v
         };
@@ -427,7 +484,9 @@ mod tests {
         for size in 2..=7 {
             let solved = CubeState::solved(size);
             for (name, _) in &tables(size).moves {
-                let state = solved.apply_algorithm(&format!("{name} {name} {name} {name}")).unwrap();
+                let state = solved
+                    .apply_algorithm(&format!("{name} {name} {name} {name}"))
+                    .unwrap();
                 assert_eq!(state, solved, "{name} on {size}x{size}");
             }
         }
@@ -438,17 +497,28 @@ mod tests {
         // Port of HugeScrambleTest.testCubeNormalization.
         let solved = CubeState::solved(4);
         let normalized_solved = solved.get_normalized();
-        assert_eq!(solved.apply_algorithm("Rw Lw'").unwrap().get_normalized(), normalized_solved);
-        assert_eq!(solved.apply_algorithm("Uw Dw'").unwrap().get_normalized(), normalized_solved);
+        assert_eq!(
+            solved.apply_algorithm("Rw Lw'").unwrap().get_normalized(),
+            normalized_solved
+        );
+        assert_eq!(
+            solved.apply_algorithm("Uw Dw'").unwrap().get_normalized(),
+            normalized_solved
+        );
 
         let threes = CubeState::solved(3);
-        assert!(threes.apply("B").unwrap().equals_normalized(&threes.apply("Fw").unwrap()));
+        assert!(
+            threes
+                .apply("B")
+                .unwrap()
+                .equals_normalized(&threes.apply("Fw").unwrap())
+        );
 
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         let mut state = solved;
         for _ in 0..100 {
             let successors: Vec<CubeState> = state.successors_by_name().into_values().collect();
-            state = successors[rng.random_range(0..successors.len())].clone();
+            state = successors[rng.next_index(successors.len())].clone();
             let rotated = state.apply_algorithm("Uw Dw'").unwrap();
             assert_eq!(state.get_normalized(), rotated.get_normalized());
         }
@@ -473,7 +543,9 @@ mod tests {
         let apply = |alg: &str| {
             let mut ab = AlgorithmBuilder::new(MergingMode::NoMerging, fives.solved_state());
             ab.append_algorithm(alg).unwrap();
-            fives.apply_orientation(&reorient, ab.into_state_and_generator(), true).generator
+            fives
+                .apply_orientation(&reorient, ab.into_state_and_generator(), true)
+                .generator
         };
         assert_eq!(apply("F R"), "F R 4Uw");
         assert_eq!(apply("F D"), "F 4Uw");

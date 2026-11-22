@@ -6,7 +6,7 @@
 
 use std::sync::LazyLock;
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 use crate::moves;
 use crate::util::{parity, set8_perm};
@@ -55,9 +55,9 @@ impl CornerCube {
     }
 
     /// Create a random corner cube.
-    pub fn new_random(rng: &mut impl Rng) -> Self {
-        let cperm = rng.random_range(0..40320);
-        let twist = rng.random_range(0..2187);
+    pub fn new_random(rng: &mut JavaRandom) -> Self {
+        let cperm = rng.next_index(40320) as i32;
+        let twist = rng.next_index(2187) as i32;
         Self::from_cperm_twist(cperm, twist)
     }
 
@@ -77,6 +77,7 @@ impl CornerCube {
     }
 
     /// Get the parity of the corner permutation (0 = even, 1 = odd).
+    #[must_use]
     pub fn get_parity(&self) -> i32 {
         parity(&self.cp)
     }

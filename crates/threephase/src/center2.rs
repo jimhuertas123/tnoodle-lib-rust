@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 
 use crate::center_cube::CenterCube;
 use crate::moves;
-use crate::util::{swap_i32, CNK};
+use crate::util::{CNK, swap_i32};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -24,7 +24,7 @@ pub const N_RL: usize = 70;
 pub const N_CT: usize = 6435;
 
 /// Size of the pruning table.
-pub const N_PRUN: usize = N_CT * N_RL;  // 450450
+pub const N_PRUN: usize = N_CT * N_RL; // 450450
 
 // ---------------------------------------------------------------------------
 // Tables (lazy-initialised)
@@ -47,8 +47,8 @@ pub struct Tables {
 
 /// Parity contribution per standard move (36 entries, indexed 0..35).
 const PMV: [i32; 36] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0,
+    1, 0, 0, 0,
 ];
 
 // ---------------------------------------------------------------------------

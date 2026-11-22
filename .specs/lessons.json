@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 5,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "ac_gap::when porting a java path that throws decide the rust outcome explicitly and test the error input a retry loop around a result can turn java s exception into a hang",
+      "text": "When porting a Java path that throws, decide the Rust outcome explicitly and test the error input; a retry loop around a Result can turn Java's exception into a hang.",
+      "signal": "ac_gap",
+      "scope": "scrambles",
+      "status": "candidate",
+      "features": [
+        "mirror-cubes"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C26 (scrambles)"
+      ],
+      "created": "2026-11-22T05:53:12Z",
+      "last_seen": "2026-11-22T05:53:12Z"
+    },
+    {
+      "id": "L-002",
+      "key": "ac_gap::every limit an ac names min and max time and probes needs its own assertion one budget mode s test does not cover the other",
+      "text": "Every limit an AC names (min and max, time and probes) needs its own assertion; one budget mode's test does not cover the other.",
+      "signal": "ac_gap",
+      "scope": "min2phase",
+      "status": "candidate",
+      "features": [
+        "mirror-cubes"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C27 (min2phase)"
+      ],
+      "created": "2026-11-22T05:53:12Z",
+      "last_seen": "2026-11-22T05:53:12Z"
+    },
+    {
+      "id": "L-003",
+      "key": "weak_test::derive a changelog guard s item list from the public api diff not from names picked by hand",
+      "text": "Derive a changelog guard's item list from the public-API diff, not from names picked by hand.",
+      "signal": "weak_test",
+      "scope": "tools",
+      "status": "candidate",
+      "features": [
+        "mirror-cubes"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C23 (tools)"
+      ],
+      "created": "2026-11-22T05:53:12Z",
+      "last_seen": "2026-11-22T05:53:12Z"
+    },
+    {
+      "id": "L-004",
+      "key": "weak_test::pin each enumerated error code with a fixed input random corruptions reach rare codes only by chance",
+      "text": "Pin each enumerated error code with a fixed input; random corruptions reach rare codes only by chance.",
+      "signal": "weak_test",
+      "scope": "crosscheck",
+      "status": "candidate",
+      "features": [
+        "mirror-cubes"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C12 (crosscheck)"
+      ],
+      "created": "2026-11-22T05:53:12Z",
+      "last_seen": "2026-11-22T05:53:12Z"
+    }
+  ]
+}

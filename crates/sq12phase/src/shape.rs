@@ -99,7 +99,14 @@ impl ShapeTables {
         let solved_idx = solved_cube_shape_idx(&shape_idx) as usize;
         shape_prun_opt[solved_idx] = 0;
 
-        init_pruning(&mut shape_prun, 4, FACE_TURN_METRIC, &top_move, &bottom_move, &twist_move);
+        init_pruning(
+            &mut shape_prun,
+            4,
+            FACE_TURN_METRIC,
+            &top_move,
+            &bottom_move,
+            &twist_move,
+        );
         init_pruning(
             &mut shape_prun_opt,
             1,
@@ -306,14 +313,16 @@ impl ShapeState {
         let entry = shape_idx[idx >> 1];
         let top = entry >> 12;
         let bottom = entry & 0xfff;
-        Self { top, bottom, parity }
+        Self {
+            top,
+            bottom,
+            parity,
+        }
     }
 
     fn get_idx(&self, shape_idx: &[i32]) -> i32 {
         let val = self.top << 12 | self.bottom;
-        let pos = shape_idx
-            .binary_search(&val)
-            .expect("shape not found") as i32;
+        let pos = shape_idx.binary_search(&val).expect("shape not found") as i32;
         (pos << 1) | self.parity
     }
 

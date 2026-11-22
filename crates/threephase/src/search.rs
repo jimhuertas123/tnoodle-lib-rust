@@ -9,21 +9,20 @@
 //! Phase 3: solve edges (using Edge3 + Center3) then hand off to min2phase for 3x3
 //!
 //! This module depends on center1, center2, center3, edge3, and the
-//! tnoodle_min2phase crate (the 3x3 two-phase solver).
+//! `tnoodle_min2phase` crate (the 3x3 two-phase solver).
 
-use std::collections::BinaryHeap;
-
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 use crate::center1::{self, Center1};
 use crate::center2::Center2;
 use crate::center3::Center3;
 use crate::edge3::{self, Edge3};
 use crate::full_cube::FullCube;
-use crate::moves::*;
+use crate::moves::{
+    BWX3, CKMV2, CKMV3, DWX3, FWX1, MOVE2STD, MOVE3STD, SKIP_AXIS2, SKIP_AXIS3, UWX1,
+};
 
-use tnoodle_min2phase::search::Search as Search333;
-use tnoodle_min2phase::search::SearchResult;
+use tnoodle_min2phase::search::{Search as Search333, Verbose};
 
 // ─── constants ───────────────────────────────────────────────────────
 
@@ -56,7 +55,7 @@ pub struct Search {
     p1_sols_cnt: usize,
     // Best phase-1 solutions, as a max-heap by value so the worst one is on
     // top and gets replaced (Java's PriorityQueue with ValueComparator).
-    p1_sols: BinaryHeap<FullCubeEntry>,
+    p1_sols: JavaPriorityQueue,
 
     arr2: Vec<Option<FullCube>>,
     arr2_idx: usize,
@@ -67,33 +66,75 @@ pub struct Search {
     pub solution: String,
 }
 
-/// Wrapper for BinaryHeap ordering (max-value first, for ValueComparator).
-struct FullCubeEntry {
-    cube: FullCube,
+/// Port of the parts of `java.util.PriorityQueue` threephase uses, with
+/// `FullCube.ValueComparator` (the head is the highest value). The sift order
+/// is Java's, so the backing array, which `toArray` exposes, matches too.
+#[derive(Default)]
+struct JavaPriorityQueue {
+    queue: Vec<FullCube>,
 }
 
-impl PartialEq for FullCubeEntry {
-    fn eq(&self, other: &Self) -> bool {
-        self.cube.value == other.cube.value
+impl JavaPriorityQueue {
+    /// `ValueComparator.compare(a, b)`: `b.value - a.value`.
+    fn compare(a: &FullCube, b: &FullCube) -> i32 {
+        b.value - a.value
     }
-}
-impl Eq for FullCubeEntry {}
 
-impl PartialOrd for FullCubeEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    fn len(&self) -> usize {
+        self.queue.len()
     }
-}
 
-impl Ord for FullCubeEntry {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // Java ValueComparator: c2.value - c1.value  (i.e. higher value = higher priority)
-        // Bigger value = greater, so the BinaryHeap top is the worst solution.
-        self.cube.value.cmp(&other.cube.value)
+    fn clear(&mut self) {
+        self.queue.clear();
+    }
+
+    /// Port of `offer`/`siftUp`.
+    fn add(&mut self, x: FullCube) {
+        let mut k = self.queue.len();
+        self.queue.push(x);
+        while k > 0 {
+            let parent = (k - 1) >> 1;
+            if Self::compare(&self.queue[k], &self.queue[parent]) >= 0 {
+                break;
+            }
+            self.queue.swap(k, parent);
+            k = parent;
+        }
+    }
+
+    /// Port of `poll`/`siftDown`.
+    fn poll(&mut self) -> FullCube {
+        let last = self.queue.pop().expect("poll on a full queue");
+        if self.queue.is_empty() {
+            return last;
+        }
+        let result = std::mem::replace(&mut self.queue[0], last);
+        let n = self.queue.len();
+        let half = n >> 1;
+        let mut k = 0;
+        while k < half {
+            let mut child = 2 * k + 1;
+            let right = child + 1;
+            if right < n && Self::compare(&self.queue[child], &self.queue[right]) > 0 {
+                child = right;
+            }
+            if Self::compare(&self.queue[k], &self.queue[child]) <= 0 {
+                break;
+            }
+            self.queue.swap(k, child);
+            k = child;
+        }
+        result
+    }
+
+    /// `toArray`: the backing array, in heap order.
+    fn take_array(&mut self) -> Vec<FullCube> {
+        std::mem::take(&mut self.queue)
     }
 }
 
 impl Search {
+    #[must_use]
     pub fn new() -> Self {
         let mut tempe = Vec::with_capacity(20);
         for _ in 0..20 {
@@ -121,7 +162,7 @@ impl Search {
             tempe,
             search333: Search333::new(),
             p1_sols_cnt: 0,
-            p1_sols: BinaryHeap::with_capacity(PHASE2_ATTEMPTS),
+            p1_sols: JavaPriorityQueue::default(),
             arr2,
             arr2_idx: 0,
             inverse_solution: true,
@@ -150,7 +191,7 @@ impl Search {
     }
 
     /// Generate a random 4x4 state and return its scramble solution.
-    pub fn random_state<R: Rng>(&mut self, rng: &mut R) -> String {
+    pub fn random_state(&mut self, rng: &mut JavaRandom) -> String {
         self.cube = Some(FullCube::random(rng));
         self.do_search();
         self.solution.clone()
@@ -161,12 +202,12 @@ impl Search {
         let mut f = [0u8; 96];
         for (i, ch) in facelet.chars().enumerate().take(96) {
             f[i] = match ch {
-                'U' => 0,
                 'R' => 1,
                 'F' => 2,
                 'D' => 3,
                 'L' => 4,
                 'B' => 5,
+                // 'U', and an unknown colour (Java reads it as -1).
                 _ => 0,
             };
         }
@@ -184,6 +225,10 @@ impl Search {
 
     // ── internal search ──
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "kept in one piece to mirror Java's doSearch"
+    )]
     fn do_search(&mut self) {
         Self::init();
         self.solution.clear();
@@ -195,13 +240,13 @@ impl Search {
         let c = self.cube.as_mut().unwrap();
         let center_snap = c.get_center().clone();
 
-        let ud_c1 = Center1::from_center_cube(&center_snap, 0);
-        let fb_c1 = Center1::from_center_cube(&center_snap, 1);
-        let rl_c1 = Center1::from_center_cube(&center_snap, 2);
+        let mut ud_c1 = Center1::from_center_cube(&center_snap, 0);
+        let mut fb_c1 = Center1::from_center_cube(&center_snap, 1);
+        let mut rl_c1 = Center1::from_center_cube(&center_snap, 2);
 
-        let ud = ud_c1.getsym(c1_tables);
-        let fb = fb_c1.getsym(c1_tables);
-        let rl = rl_c1.getsym(c1_tables);
+        let ud = ud_c1.getsym_search(c1_tables);
+        let fb = fb_c1.getsym_search(c1_tables);
+        let rl = rl_c1.getsym_search(c1_tables);
 
         let ud_prun = c1_tables.csprun[(ud >> 6) as usize];
         let fb_prun = c1_tables.csprun[(fb >> 6) as usize];
@@ -216,37 +261,19 @@ impl Search {
         for len1 in min_prun..100 {
             self.length1 = len1;
             if rl_prun as i32 <= len1
-                && self.search1(
-                    (rl >> 6) as usize,
-                    (rl & 0x3f) as usize,
-                    len1,
-                    -1,
-                    0,
-                )
+                && self.search1((rl >> 6) as usize, (rl & 0x3f) as usize, len1, -1, 0)
             {
                 found = true;
                 break;
             }
             if ud_prun as i32 <= len1
-                && self.search1(
-                    (ud >> 6) as usize,
-                    (ud & 0x3f) as usize,
-                    len1,
-                    -1,
-                    0,
-                )
+                && self.search1((ud >> 6) as usize, (ud & 0x3f) as usize, len1, -1, 0)
             {
                 found = true;
                 break;
             }
             if fb_prun as i32 <= len1
-                && self.search1(
-                    (fb >> 6) as usize,
-                    (fb & 0x3f) as usize,
-                    len1,
-                    -1,
-                    0,
-                )
+                && self.search1((fb >> 6) as usize, (fb & 0x3f) as usize, len1, -1, 0)
             {
                 found = true;
                 break;
@@ -254,11 +281,8 @@ impl Search {
         }
 
         // Collect phase-1 solutions, sort by value
-        let mut p1_sols_arr: Vec<FullCube> = self
-            .p1_sols
-            .drain()
-            .map(|e| e.cube)
-            .collect();
+        // `toArray` then a stable sort by value, as Java's `Arrays.sort`.
+        let mut p1_sols_arr: Vec<FullCube> = self.p1_sols.take_array();
         p1_sols_arr.sort_by_key(|c| c.value);
 
         if p1_sols_arr.is_empty() {
@@ -310,9 +334,7 @@ impl Search {
 
         // Sort phase-2 results
         let mut arr2_sorted: Vec<usize> = (0..self.arr2_idx).collect();
-        arr2_sorted.sort_by_key(|&i| {
-            self.arr2[i].as_ref().map(|c| c.value).unwrap_or(i32::MAX)
-        });
+        arr2_sorted.sort_by_key(|&i| self.arr2[i].as_ref().map_or(i32::MAX, |c| c.value));
 
         if arr2_sorted.is_empty() {
             self.solution = "Error: no phase-2 solution".to_string();
@@ -328,16 +350,13 @@ impl Search {
             length123 = 100i32;
             let mut found3 = false;
 
-            let base_val3 = self.arr2[arr2_sorted[0]]
-                .as_ref()
-                .map(|c| c.value)
-                .unwrap_or(0);
+            let base_val3 = self.arr2[arr2_sorted[0]].as_ref().map_or(0, |c| c.value);
 
             'out2: for l123 in base_val3..100 {
                 let limit = self.arr2_idx.min(PHASE3_ATTEMPTS);
                 for si in 0..limit {
                     let idx = arr2_sorted[si];
-                    let arr2_val = self.arr2[idx].as_ref().map(|c| c.value).unwrap_or(i32::MAX);
+                    let arr2_val = self.arr2[idx].as_ref().map_or(i32::MAX, |c| c.value);
                     if arr2_val > l123 {
                         break;
                     }
@@ -352,7 +371,8 @@ impl Search {
                     let eparity = self.e12.set_edge_cube(&edge_snap);
                     let corner_parity = self.arr2[idx].as_mut().unwrap().get_corner().get_parity();
                     let center_snap2 = self.arr2[idx].as_mut().unwrap().get_center().clone();
-                    self.ct3.set_from_cube(&center_snap2, eparity ^ corner_parity);
+                    self.ct3
+                        .set_from_cube(&center_snap2, eparity ^ corner_parity);
                     let ct3_tables_ref = &*crate::center3::TABLES;
                     let ct = self.ct3.getct(&ct3_tables_ref.std2rl);
                     let edge_coord = self.e12.get(10);
@@ -364,14 +384,7 @@ impl Search {
                         let ct3_tables = &*crate::center3::TABLES;
                         let ct3_prun = ct3_tables.prun[ct as usize];
                         if ct3_prun as i32 <= remaining
-                            && self.search3(
-                                edge_coord,
-                                ct as usize,
-                                prun,
-                                remaining,
-                                lm,
-                                0,
-                            )
+                            && self.search3(edge_coord, ct as usize, prun, remaining, lm, 0)
                         {
                             best_index = idx;
                             length123 = l123;
@@ -409,10 +422,12 @@ impl Search {
         // Get the 3x3 facelet and solve with min2phase
         let facelet_333 = sol_cube.to_333_facelet();
 
-        let sol_333 = self.search333.solution(&facelet_333, 21, 1000000, 500, 0);
+        let sol_333 = self
+            .search333
+            .solution(&facelet_333, 21, 1_000_000, 500, Verbose::NONE);
 
         match sol_333 {
-            SearchResult::Solution(sol_str) => {
+            Ok(sol_str) => {
                 // Parse solution string into move indices and apply
                 let sol_moves = parse_moves_333(&sol_str);
                 for &m in &sol_moves {
@@ -421,22 +436,15 @@ impl Search {
 
                 self.solution = sol_cube.get_move_string(self.inverse_solution, self.with_rotation);
             }
-            SearchResult::Error(code) => {
-                self.solution = format!("Error {}", code);
+            Err(error) => {
+                self.solution = error.to_string();
             }
         }
     }
 
     // ── Phase 1 search ──
 
-    fn search1(
-        &mut self,
-        ct: usize,
-        sym: usize,
-        maxl: i32,
-        lm: i32,
-        depth: usize,
-    ) -> bool {
+    fn search1(&mut self, ct: usize, sym: usize, maxl: i32, lm: i32, depth: usize) -> bool {
         let c1_tables = &*center1::TABLES;
 
         if ct == 0 && maxl < 5 {
@@ -500,7 +508,7 @@ impl Search {
                 add1 = true;
                 sym_new = 34;
             }
-            735470 => {
+            735_470 => {
                 add1 = false;
                 sym_new = 0;
             }
@@ -527,35 +535,28 @@ impl Search {
         self.p1_sols_cnt += 1;
 
         // Add to priority queue (keeping at most PHASE2_ATTEMPTS entries)
-        let entry = FullCubeEntry {
-            cube: self.c1.clone_cube(),
-        };
+        let entry = self.c1.clone_cube();
 
-        if self.p1_sols.len() < PHASE2_ATTEMPTS {
-            self.p1_sols.push(entry);
+        // Java polls the worst candidate and adds it back, replaced by the new
+        // one when that is better; both steps reorder the heap.
+        let next = if self.p1_sols.len() < PHASE2_ATTEMPTS {
+            entry
         } else {
-            // Check if the worst in the heap is worse than the new one
-            if let Some(worst) = self.p1_sols.peek() {
-                if worst.cube.value > self.c1.value {
-                    self.p1_sols.pop();
-                    self.p1_sols.push(entry);
-                }
+            let worst = self.p1_sols.poll();
+            if worst.value > self.c1.value {
+                entry
+            } else {
+                worst
             }
-        }
+        };
+        self.p1_sols.add(next);
 
         self.p1_sols_cnt == PHASE1_SOLUTIONS
     }
 
     // ── Phase 2 search ──
 
-    fn search2(
-        &mut self,
-        ct: i32,
-        rl: i32,
-        maxl: i32,
-        lm: usize,
-        depth: usize,
-    ) -> bool {
+    fn search2(&mut self, ct: i32, rl: i32, maxl: i32, lm: usize, depth: usize) -> bool {
         let c2_tables = &*crate::center2::TABLES;
 
         if ct == 0 && c2_tables.ctprun[rl as usize] == 0 && maxl == 0 {
@@ -606,7 +607,8 @@ impl Search {
         let eparity = self.e12.set_edge_cube(&edge_snap);
         let corner_parity = self.c2.get_corner().get_parity();
         let center_snap = self.c2.get_center().clone();
-        self.ct3.set_from_cube(&center_snap, eparity ^ corner_parity);
+        self.ct3
+            .set_from_cube(&center_snap, eparity ^ corner_parity);
         let ct3_tables_init3 = &*crate::center3::TABLES;
         let ct = self.ct3.getct(&ct3_tables_init3.std2rl);
         let prun = edge3::getprun_full(self.e12.getsym());
@@ -616,7 +618,10 @@ impl Search {
         if self.arr2[self.arr2_idx].is_none() {
             self.arr2[self.arr2_idx] = Some(self.c2.clone_cube());
         } else {
-            self.arr2[self.arr2_idx].as_mut().unwrap().copy_from(&self.c2);
+            self.arr2[self.arr2_idx]
+                .as_mut()
+                .unwrap()
+                .copy_from(&self.c2);
         }
         let cube = self.arr2[self.arr2_idx].as_mut().unwrap();
         cube.value = self.length1 + self.length2 + prun.max(ct3_tables.prun[ct as usize] as i32);
@@ -666,21 +671,14 @@ impl Search {
                 continue;
             }
 
-            let edgex =
-                edge3::getmvrot(&self.tempe[depth].edge, m << 3, 10);
+            let edgex = edge3::getmvrot(&self.tempe[depth].edge, m << 3, 10);
             let cord1x = edgex / (edge3::N_RAW as i32);
             let symcord1x_full = e3_tables.raw2sym[cord1x as usize];
             let symx = (symcord1x_full & 0x7) as usize;
             let symcord1x = (symcord1x_full >> 3) as usize;
-            let cord2x = edge3::getmvrot(
-                &self.tempe[depth].edge,
-                (m << 3) | symx,
-                10,
-            ) % (edge3::N_RAW as i32);
-            let prunx = edge3::getprun(
-                symcord1x * edge3::N_RAW + cord2x as usize,
-                prun,
-            );
+            let cord2x = edge3::getmvrot(&self.tempe[depth].edge, (m << 3) | symx, 10)
+                % (edge3::N_RAW as i32);
+            let prunx = edge3::getprun(symcord1x * edge3::N_RAW + cord2x as usize, prun);
             if prunx >= maxl {
                 if prunx > maxl && m < 14 {
                     m = skip_axis3[m] as usize;
@@ -738,6 +736,7 @@ fn parse_moves_333(sol: &str) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::moves::{LWX3, MOVE2STR, RWX1};
 
     #[test]
     fn test_search_new() {
@@ -766,7 +765,12 @@ mod tests {
 
     fn parse_4x4(alg: &str) -> Vec<usize> {
         alg.split_whitespace()
-            .map(|m| MOVE2STR.iter().position(|s| s.trim() == m).unwrap_or_else(|| panic!("bad move {m}")))
+            .map(|m| {
+                MOVE2STR
+                    .iter()
+                    .position(|s| s.trim() == m)
+                    .unwrap_or_else(|| panic!("bad move {m}"))
+            })
             .collect()
     }
 
@@ -796,22 +800,28 @@ mod tests {
     fn solutions_reproduce_the_input_state() {
         // Regression: the reduced 3x3 is usually rotated and used to reach
         // min2phase with wrong colors, giving "Error -6" or wrong scrambles.
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         let mut search = Search::new();
         for _ in 0..10 {
-            let moves: Vec<usize> = (0..40).map(|_| rand::Rng::random_range(&mut rng, 0..36)).collect();
+            let moves: Vec<usize> = (0..40).map(|_| rng.next_index(36)).collect();
             let target = facelets(&mut FullCube::from_moves(&moves));
-            let facelet: String = target.iter().map(|&c| "URFDLB".as_bytes()[c as usize] as char).collect();
+            let facelet: String = target
+                .iter()
+                .map(|&c| "URFDLB".as_bytes()[c as usize] as char)
+                .collect();
             let scramble = search.solution_from_facelet(&facelet);
             assert!(!scramble.starts_with("Error"), "{scramble}");
             let produced = facelets(&mut FullCube::from_moves(&parse_4x4(&scramble)));
-            assert!(orientations(produced).contains(&target), "{scramble} does not reproduce the state");
+            assert!(
+                orientations(produced).contains(&target),
+                "{scramble} does not reproduce the state"
+            );
         }
     }
 
     #[test]
     fn random_state_never_errors() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         let mut search = Search::new();
         for _ in 0..10 {
             let scramble = search.random_state(&mut rng);

@@ -86,10 +86,7 @@ impl<S: PuzzleState> AlgorithmBuilder<S> {
         if new_un_normalized.equals_normalized(&self.un_normalized_state) {
             // Move is just a rotation
             if merging_mode == MergingMode::CanonicalizeMoves {
-                return Ok(IndexAndMove {
-                    index: 0,
-                    mv: None,
-                });
+                return Ok(IndexAndMove { index: 0, mv: None });
             }
         }
 
@@ -300,15 +297,22 @@ mod tests {
         let mut rng = rand::rng();
         for size in 2..=4 {
             let puzzle = CubePuzzle::new(size);
-            assert_eq!(solve_in(&puzzle, &puzzle.solved_state(), 0).as_deref(), Some(""));
+            assert_eq!(
+                solve_in(&puzzle, &puzzle.solved_state(), 0).as_deref(),
+                Some("")
+            );
             for _ in 0..10 {
                 let mut state = puzzle.solved_state();
                 for _ in 0..4 {
-                    let successors: Vec<CubeState> = state.successors_by_name().into_values().collect();
+                    let successors: Vec<CubeState> =
+                        state.successors_by_name().into_values().collect();
                     state = successors[rng.random_range(0..successors.len())].clone();
                 }
                 let solution = solve_in(&puzzle, &state, 4).expect("solvable in 4");
-                assert!(puzzle.is_solved(&state.apply_algorithm(&solution).unwrap()), "{solution}");
+                assert!(
+                    puzzle.is_solved(&state.apply_algorithm(&solution).unwrap()),
+                    "{solution}"
+                );
             }
         }
         let twos = CubePuzzle::new(2);

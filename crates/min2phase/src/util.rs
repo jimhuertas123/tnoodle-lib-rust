@@ -97,32 +97,60 @@ pub const B9: u8 = 53;
 
 /// `CORNER_FACELET[i]` = the 3 facelets of corner `i` (U/D facelet first).
 pub static CORNER_FACELET: [[u8; 3]; 8] = [
-    [U9, R1, F3], [U7, F1, L3], [U1, L1, B3], [U3, B1, R3],
-    [D3, F9, R7], [D1, L9, F7], [D7, B9, L7], [D9, R9, B7],
+    [U9, R1, F3],
+    [U7, F1, L3],
+    [U1, L1, B3],
+    [U3, B1, R3],
+    [D3, F9, R7],
+    [D1, L9, F7],
+    [D7, B9, L7],
+    [D9, R9, B7],
 ];
 
 /// `EDGE_FACELET[i]` = the 2 facelets of edge `i`.
 pub static EDGE_FACELET: [[u8; 2]; 12] = [
-    [U6, R2], [U8, F2], [U4, L2], [U2, B2],
-    [D6, R8], [D2, F8], [D4, L8], [D8, B8],
-    [F6, R4], [F4, L6], [B6, L4], [B4, R6],
+    [U6, R2],
+    [U8, F2],
+    [U4, L2],
+    [U2, B2],
+    [D6, R8],
+    [D2, F8],
+    [D4, L8],
+    [D8, B8],
+    [F6, R4],
+    [F4, L6],
+    [B6, L4],
+    [B4, R6],
 ];
 
 // ---------------------------------------------------------------------------
 // Move string representations
 // ---------------------------------------------------------------------------
 pub static MOVE2STR: [&str; 18] = [
-    "U ", "U2", "U'", "R ", "R2", "R'", "F ", "F2", "F'",
-    "D ", "D2", "D'", "L ", "L2", "L'", "B ", "B2", "B'",
+    "U ", "U2", "U'", "R ", "R2", "R'", "F ", "F2", "F'", "D ", "D2", "D'", "L ", "L2", "L'", "B ",
+    "B2", "B'",
 ];
 
 /// Phase-2 (UD) move order -> standard move index.
 pub static UD2STD: [usize; 18] = [
-    UX1 as usize, UX2 as usize, UX3 as usize, RX2 as usize,
-    FX2 as usize, DX1 as usize, DX2 as usize, DX3 as usize,
-    LX2 as usize, BX2 as usize, RX1 as usize, RX3 as usize,
-    FX1 as usize, FX3 as usize, LX1 as usize, LX3 as usize,
-    BX1 as usize, BX3 as usize,
+    UX1 as usize,
+    UX2 as usize,
+    UX3 as usize,
+    RX2 as usize,
+    FX2 as usize,
+    DX1 as usize,
+    DX2 as usize,
+    DX3 as usize,
+    LX2 as usize,
+    BX2 as usize,
+    RX1 as usize,
+    RX3 as usize,
+    FX1 as usize,
+    FX3 as usize,
+    LX1 as usize,
+    LX3 as usize,
+    BX1 as usize,
+    BX3 as usize,
 ];
 
 // ---------------------------------------------------------------------------
@@ -209,11 +237,7 @@ pub fn set_val(val0: i32, val: i32, is_edge: bool) -> u8 {
 
 /// Unpack a permutation value.
 pub fn get_val(val0: i32, is_edge: bool) -> i32 {
-    if is_edge {
-        val0 >> 1
-    } else {
-        val0 & 7
-    }
+    if is_edge { val0 >> 1 } else { val0 & 7 }
 }
 
 /// Convert a permutation array to a factorial number system index.
@@ -319,15 +343,13 @@ pub fn to_cubie_cube(facelets: &[u8; 54], ca: &mut [u8; 8], ea: &mut [u8; 12]) {
     for i in 0u8..12 {
         for j in 0u8..12 {
             if facelets[EDGE_FACELET[i as usize][0] as usize] == EDGE_FACELET[j as usize][0] / 9
-                && facelets[EDGE_FACELET[i as usize][1] as usize]
-                    == EDGE_FACELET[j as usize][1] / 9
+                && facelets[EDGE_FACELET[i as usize][1] as usize] == EDGE_FACELET[j as usize][1] / 9
             {
                 ea[i as usize] = j << 1;
                 break;
             }
             if facelets[EDGE_FACELET[i as usize][0] as usize] == EDGE_FACELET[j as usize][1] / 9
-                && facelets[EDGE_FACELET[i as usize][1] as usize]
-                    == EDGE_FACELET[j as usize][0] / 9
+                && facelets[EDGE_FACELET[i as usize][1] as usize] == EDGE_FACELET[j as usize][0] / 9
             {
                 ea[i as usize] = j << 1 | 1;
                 break;
@@ -348,8 +370,7 @@ pub fn to_face_cube(ca: &[u8; 8], ea: &[u8; 12]) -> String {
         let j = (ca[c as usize] & 7) as usize;
         let ori = (ca[c as usize] >> 3) as usize;
         for n in 0..3usize {
-            f[CORNER_FACELET[c as usize][(n + ori) % 3] as usize] =
-                CORNER_FACELET[j][n] / 9;
+            f[CORNER_FACELET[c as usize][(n + ori) % 3] as usize] = CORNER_FACELET[j][n] / 9;
         }
     }
 
@@ -357,8 +378,7 @@ pub fn to_face_cube(ca: &[u8; 8], ea: &[u8; 12]) -> String {
         let j = (ea[e as usize] >> 1) as usize;
         let ori = (ea[e as usize] & 1) as usize;
         for n in 0..2usize {
-            f[EDGE_FACELET[e as usize][(n + ori) % 2] as usize] =
-                EDGE_FACELET[j][n] / 9;
+            f[EDGE_FACELET[e as usize][(n + ori) % 2] as usize] = EDGE_FACELET[j][n] / 9;
         }
     }
 
@@ -403,6 +423,9 @@ mod tests {
         let ca = [0, 1, 2, 3, 4, 5, 6, 7];
         let ea = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
         let face = to_face_cube(&ca, &ea);
-        assert_eq!(face, "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
+        assert_eq!(
+            face,
+            "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
+        );
     }
 }
