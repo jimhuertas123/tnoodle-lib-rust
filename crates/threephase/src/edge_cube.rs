@@ -4,7 +4,7 @@
 //! Represents the 24 edge positions of a 4×4×4 Rubik's cube.
 //! Edges come in 12 pairs (two stickers each), so there are 24 edge slots.
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 use crate::moves;
 use crate::util::{parity, swap_u8};
@@ -77,10 +77,10 @@ impl EdgeCube {
     }
 
     /// Create a random edge permutation.
-    pub fn new_random(rng: &mut impl Rng) -> Self {
+    pub fn new_random(rng: &mut JavaRandom) -> Self {
         let mut cube = Self::new();
         for i in 0..23 {
-            let t = i + rng.random_range(0..(24 - i));
+            let t = i + rng.next_index(24 - i);
             if t != i {
                 cube.ep.swap(i, t);
             }
@@ -89,6 +89,7 @@ impl EdgeCube {
     }
 
     /// Create an edge cube by applying a move sequence to the solved state.
+    #[must_use]
     pub fn from_moves(moveseq: &[usize]) -> Self {
         let mut cube = Self::new();
         for &m in moveseq {
@@ -98,6 +99,7 @@ impl EdgeCube {
     }
 
     /// Get the parity of the edge permutation (0 = even, 1 = odd).
+    #[must_use]
     pub fn get_parity(&self) -> i32 {
         parity(&self.ep)
     }
@@ -123,6 +125,7 @@ impl EdgeCube {
     /// split between the two halves is even.
     ///
     /// Returns `true` if the edge state is valid.
+    #[must_use]
     pub fn check_edge(&self) -> bool {
         let mut ck: i32 = 0;
         let mut par = false;

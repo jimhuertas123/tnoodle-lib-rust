@@ -9,7 +9,7 @@
     clippy::cast_sign_loss
 )]
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 use crate::shape::{self, SHAPE_TABLES};
 use crate::square::{self, Square};
@@ -258,11 +258,11 @@ impl FullCube {
     /// Uses the shape table to pick a random valid shape, then fills in
     /// corners and edges by random permutation.
     #[must_use]
-    pub fn random_cube(rng: &mut impl Rng) -> Self {
+    pub fn random_cube(rng: &mut JavaRandom) -> Self {
         // Force table initialization
         let tables = &*SHAPE_TABLES;
 
-        let shape = tables.shape_idx[rng.random_range(0..shape::N_SHAPE_IDX)];
+        let shape = tables.shape_idx[rng.next_index(shape::N_SHAPE_IDX)];
         let mut f = Self::new();
 
         // Corners: 8 corners, nibble values are (index << 1 | 1)
@@ -277,7 +277,7 @@ impl FullCube {
         while i < 24 {
             if ((shape >> i) & 1) == 0 {
                 // Edge position
-                let rnd = (rng.random_range(0..n_edge) as u32) << 2;
+                let rnd = (rng.next_index(n_edge) as u32) << 2;
                 let piece = (edge >> rnd) & 0xf;
                 f.set_piece(23 - i, piece as i32);
                 let m = (1u32 << rnd).wrapping_sub(1);
@@ -285,7 +285,7 @@ impl FullCube {
                 n_edge -= 1;
             } else {
                 // Corner position (occupies two slots)
-                let rnd = (rng.random_range(0..n_corner) as u32) << 2;
+                let rnd = (rng.next_index(n_corner) as u32) << 2;
                 let piece = (corner >> rnd) & 0xf;
                 f.set_piece(23 - i, piece as i32);
                 f.set_piece(22 - i, piece as i32);
@@ -297,7 +297,7 @@ impl FullCube {
             i += 1;
         }
 
-        f.ml = rng.random_range(0..2_i32);
+        f.ml = rng.next_index(2) as i32;
         f
     }
 }
@@ -324,8 +324,7 @@ fn compress_shape_bits(quarter: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
-    use rand::rngs::StdRng;
+    use tnoodle_random::JavaRandom;
 
     #[test]
     fn solved_cube_is_solved() {
@@ -407,7 +406,7 @@ mod tests {
 
     #[test]
     fn random_cube_valid_shape() {
-        let mut rng = StdRng::seed_from_u64(42);
+        let mut rng = JavaRandom::from_seed(b"42");
         let tables = &*SHAPE_TABLES;
 
         for _ in 0..20 {
@@ -429,7 +428,7 @@ mod tests {
         // A valid Square-1 state should have exactly 8 corner nibbles
         // (odd values) and 8 edge nibbles (even values), with each
         // identity appearing exactly the right number of times.
-        let mut rng = StdRng::seed_from_u64(123);
+        let mut rng = JavaRandom::from_seed(b"123");
 
         for _ in 0..10 {
             let c = FullCube::random_cube(&mut rng);
@@ -461,7 +460,7 @@ mod tests {
 
     #[test]
     fn copy_from_works() {
-        let mut rng = StdRng::seed_from_u64(99);
+        let mut rng = JavaRandom::from_seed(b"99");
         let c = FullCube::random_cube(&mut rng);
         let mut d = FullCube::new();
         d.copy_from(&c);

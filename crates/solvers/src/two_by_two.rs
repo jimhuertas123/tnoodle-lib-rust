@@ -9,8 +9,8 @@
 //! Moves: U, U2, U', R, R2, R', F, F2, F' (9 total).
 //! IDA* search with pruning tables on perm and orient coordinates.
 
-use rand::Rng;
 use std::sync::LazyLock;
+use tnoodle_random::JavaRandom;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -52,11 +52,11 @@ impl State {
 /// Pack cubie permutation into an index 0..5039.
 fn pack_perm(cubies: &[i32; 7]) -> usize {
     let mut idx: i32 = 0;
-    let mut val: i32 = 0x6543210;
+    let mut val: i32 = 0x0654_3210;
     for i in 0..6 {
         let v = (cubies[i] & 0x7) << 2;
         idx = (7 - i as i32) * idx + ((val >> v) & 0x7);
-        val -= 0x1111110 << v;
+        val -= 0x0111_1110 << v;
     }
     idx as usize
 }
@@ -64,7 +64,7 @@ fn pack_perm(cubies: &[i32; 7]) -> usize {
 /// Unpack permutation index into cubie array.
 fn unpack_perm(perm: usize, cubies: &mut [i32; 7]) {
     let mut perm = perm as i32;
-    let mut val: i32 = 0x6543210;
+    let mut val: i32 = 0x0654_3210;
     for i in 0..6 {
         let p = FACT[6 - i] as i32;
         let v = perm / p;
@@ -380,10 +380,10 @@ fn search_best(
 // ---------------------------------------------------------------------------
 
 /// Generate a random 2x2 state.
-pub fn random_state(rng: &mut impl Rng) -> State {
+pub fn random_state(rng: &mut JavaRandom) -> State {
     State {
-        permutation: rng.random_range(0..N_PERM),
-        orientation: rng.random_range(0..N_ORIENT),
+        permutation: rng.next_index(N_PERM),
+        orientation: rng.next_index(N_ORIENT),
     }
 }
 
@@ -391,6 +391,7 @@ pub fn random_state(rng: &mut impl Rng) -> State {
 /// Returns the forward solution (not the inverse/generator).
 /// An empty string is returned for the solved state.
 /// `None` is returned when no solution of that length exists.
+#[must_use]
 pub fn solve(state: State, max_depth: usize) -> Option<String> {
     let tables = &*TABLES;
     let mut solution = [0usize; MAX_LENGTH];
@@ -426,6 +427,7 @@ pub fn solve(state: State, max_depth: usize) -> Option<String> {
 /// Like Java, every solution of that length is searched and the one that is
 /// cheapest to execute (see `compute_cost`) wins.
 /// Returns `None` if no solution of exactly that length exists.
+#[must_use]
 pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let tables = &*TABLES;
     let mut solution = [0usize; MAX_LENGTH];
@@ -469,7 +471,7 @@ mod tests {
 
     #[test]
     fn random_state_is_in_range() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         for _ in 0..100 {
             let s = random_state(&mut rng);
             assert!(s.permutation < N_PERM);
@@ -479,24 +481,24 @@ mod tests {
 
     #[test]
     fn random_state_is_solvable() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         for _ in 0..20 {
             let s = random_state(&mut rng);
             let sol = solve(s, MAX_LENGTH);
-            assert!(sol.is_some(), "state {:?} should be solvable", s);
+            assert!(sol.is_some(), "state {s:?} should be solvable");
         }
     }
 
     #[test]
     fn generate_exactly_produces_correct_length() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         // Try a few random states with a target length of 9
         for _ in 0..10 {
             let s = random_state(&mut rng);
             if let Some(scramble) = generate_exactly(s, 9) {
                 if !scramble.is_empty() {
                     let count = scramble.split_whitespace().count();
-                    assert_eq!(count, 9, "scramble '{}' should have 9 moves", scramble);
+                    assert_eq!(count, 9, "scramble '{scramble}' should have 9 moves");
                 }
             }
         }

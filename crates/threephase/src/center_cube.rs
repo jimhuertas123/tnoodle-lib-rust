@@ -4,7 +4,7 @@
 //! Represents the 24 center facelets of a 4×4×4 Rubik's cube.
 //! Each center position stores a face index (0..5).
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 use crate::full_cube::CENTER_FACELET;
 use crate::util::swap_u8;
@@ -39,10 +39,10 @@ impl CenterCube {
     }
 
     /// Create a random center permutation.
-    pub fn new_random(rng: &mut impl Rng) -> Self {
+    pub fn new_random(rng: &mut JavaRandom) -> Self {
         let mut cube = Self::new();
         for i in 0..23 {
-            let t = i + rng.random_range(0..(24 - i));
+            let t = i + rng.next_index(24 - i);
             if cube.ct[t] != cube.ct[i] {
                 cube.ct.swap(i, t);
             }
@@ -52,6 +52,7 @@ impl CenterCube {
 
     /// Create a center cube by applying a move sequence (indices into the
     /// 36-move table) to the solved state.
+    #[must_use]
     pub fn from_moves(moveseq: &[usize]) -> Self {
         let mut cube = Self::new();
         for &m in moveseq {
@@ -67,8 +68,10 @@ impl CenterCube {
 
     /// Fill the center facelets of a 3×3×3 facelet array (54 chars).
     ///
-    /// Panics if the four centers for any face are not identical (unsolved
-    /// center group).
+    /// # Panics
+    ///
+    /// If the four centers of a face are not identical (an unsolved center
+    /// group).
     pub fn fill_333_facelet(&self, facelet: &mut [u8; 54]) {
         let first_idx = 4usize;
         let inc = 9usize;

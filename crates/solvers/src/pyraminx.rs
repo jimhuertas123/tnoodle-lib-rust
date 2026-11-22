@@ -3,14 +3,14 @@
 //! Pyraminx solver.
 //!
 //! Ported from `PyraminxSolver.java` in tnoodle-lib.
-//! State is represented as (edge_perm, edge_orient, corner_orient, tips).
+//! State is represented as (`edge_perm`, `edge_orient`, `corner_orient`, tips).
 //!
 //! 8 moves for edges/corners: U, U', L, L', R, R', B, B'.
 //! 4 tip moves appended to the solution.
-//! IDA* search with pruning on edge perm and combined (corner_orient, edge_orient).
+//! IDA* search with pruning on edge perm and combined (`corner_orient`, `edge_orient`).
 
-use rand::Rng;
 use std::sync::LazyLock;
+use tnoodle_random::JavaRandom;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,6 +53,7 @@ impl State {
     };
 
     /// Number of unsolved tip positions (0..4).
+    #[must_use]
     pub fn unsolved_tips(&self) -> usize {
         let mut count = 0;
         let mut t = self.tips;
@@ -72,18 +73,18 @@ impl State {
 
 fn pack_edge_perm(edges: &[i32; 6]) -> usize {
     let mut idx: i32 = 0;
-    let mut val: i32 = 0x543210;
+    let mut val: i32 = 0x0054_3210;
     for i in 0..5 {
         let v = (edges[i] & 0x7) << 2;
         idx = (6 - i as i32) * idx + ((val >> v) & 0x7);
-        val -= 0x111110 << v;
+        val -= 0x0011_1110 << v;
     }
     idx as usize
 }
 
 fn unpack_edge_perm(perm: usize, edges: &mut [i32; 6]) {
     let mut perm = perm as i32;
-    let mut val: i32 = 0x543210;
+    let mut val: i32 = 0x0054_3210;
     for i in 0..5 {
         let p = FACT[5 - i] as i32;
         let v = perm / p;
@@ -277,7 +278,7 @@ fn search(
     length: usize,
     last_move: usize,
     solution: &mut [usize; MAX_LENGTH],
-    rng: &mut impl Rng,
+    rng: &mut JavaRandom,
 ) -> bool {
     if length == 0 {
         return edge_perm == 0 && edge_orient == 0 && corner_orient == 0;
@@ -289,7 +290,7 @@ fn search(
         return false;
     }
 
-    let offset: usize = rng.random_range(0..N_MOVES);
+    let offset: usize = rng.next_index(N_MOVES);
     for m in 0..N_MOVES {
         let mv = (m + offset) % N_MOVES;
         if mv / 2 == last_move / 2 {
@@ -320,29 +321,43 @@ fn search(
 // Public API
 // ---------------------------------------------------------------------------
 
+/// The generator that orders the solver's moves. Java uses an unseeded
+/// `new Random()` here; deriving it from the state keeps a seeded scramble
+/// reproducible without drawing from the caller's stream (AD-017).
+fn move_order(state: &State) -> JavaRandom {
+    JavaRandom::from_seed(
+        format!(
+            "pyraminx {} {} {} {}",
+            state.edge_perm, state.edge_orient, state.corner_orient, state.tips
+        )
+        .as_bytes(),
+    )
+}
+
 /// Generate a random Pyraminx state. Edge perm is guaranteed to have correct parity.
-pub fn random_state(rng: &mut impl Rng) -> State {
+pub fn random_state(rng: &mut JavaRandom) -> State {
     let tables = &*TABLES;
     let mut edge_perm;
     loop {
-        edge_perm = rng.random_range(0..N_EDGE_PERM);
+        edge_perm = rng.next_index(N_EDGE_PERM);
         if tables.prun_perm[edge_perm] != -1 {
             break;
         }
     }
     State {
         edge_perm,
-        edge_orient: rng.random_range(0..N_EDGE_ORIENT),
-        corner_orient: rng.random_range(0..N_CORNER_ORIENT),
-        tips: rng.random_range(0..N_TIPS),
+        edge_orient: rng.next_index(N_EDGE_ORIENT),
+        corner_orient: rng.next_index(N_CORNER_ORIENT),
+        tips: rng.next_index(N_TIPS),
     }
 }
 
 /// Solve the given state in at most `max_depth` moves (not counting tips).
 /// Returns the solution with tip moves appended.
+#[must_use]
 pub fn solve(state: State, max_depth: usize) -> Option<String> {
     let tables = &*TABLES;
-    let mut rng = rand::rng();
+    let mut rng = move_order(&state);
     let mut solution = [0usize; MAX_LENGTH];
     let max_depth = max_depth.min(MAX_LENGTH);
 
@@ -384,9 +399,10 @@ pub fn solve(state: State, max_depth: usize) -> Option<String> {
 }
 
 /// Generate a scramble (inverse) of exactly `length` moves (optionally counting tips).
+#[must_use]
 pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let tables = &*TABLES;
-    let mut rng = rand::rng();
+    let mut rng = move_order(&state);
     let mut solution = [0usize; MAX_LENGTH];
 
     // Subtract unsolved tips from the target length for the main search
@@ -448,7 +464,7 @@ mod tests {
 
     #[test]
     fn random_state_is_valid() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         let tables = &*TABLES;
         for _ in 0..100 {
             let s = random_state(&mut rng);
@@ -463,11 +479,11 @@ mod tests {
 
     #[test]
     fn random_state_is_solvable() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         for _ in 0..20 {
             let s = random_state(&mut rng);
             let sol = solve(s, MAX_LENGTH);
-            assert!(sol.is_some(), "state {:?} should be solvable", s);
+            assert!(sol.is_some(), "state {s:?} should be solvable");
         }
     }
 }

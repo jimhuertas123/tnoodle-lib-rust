@@ -1,17 +1,24 @@
 #![allow(clippy::all)]
 //! Port of cs.threephase.FullCube
 //!
-//! Combines EdgeCube, CenterCube, CornerCube into a single 4x4 cube state.
+//! Combines `EdgeCube`, `CenterCube`, `CornerCube` into a single 4x4 cube state.
 //! Supports facelet construction, lazy move application, and facelet output.
 
-use rand::Rng;
+use tnoodle_random::JavaRandom;
 
 use crate::center_cube::CenterCube;
 use crate::center1;
 use crate::corner_cube::CornerCube;
 use crate::edge_cube::EdgeCube;
 use crate::moves;
-use crate::moves::*;
+use crate::moves::{
+    FB0, FB1, FB2, FB3, FB4, FB5, FB6, FB7, FB8, FB9, FBA, FBB, FBC, FBD, FBE, FBF, FD0, FD1, FD2,
+    FD3, FD4, FD5, FD6, FD7, FD8, FD9, FDA, FDB, FDC, FDD, FDE, FDF, FF0, FF1, FF2, FF3, FF4, FF5,
+    FF6, FF7, FF8, FF9, FFA, FFB, FFC, FFD, FFE, FFF, FL0, FL1, FL2, FL3, FL4, FL5, FL6, FL7, FL8,
+    FL9, FLA, FLB, FLC, FLD, FLE, FLF, FR0, FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR8, FR9, FRA, FRB,
+    FRC, FRD, FRE, FRF, FU0, FU1, FU2, FU3, FU4, FU5, FU6, FU7, FU8, FU9, FUA, FUB, FUC, FUD, FUE,
+    FUF,
+};
 
 // ─── facelet constants ───────────────────────────────────────────────
 
@@ -95,6 +102,7 @@ pub struct FullCube {
 }
 
 impl FullCube {
+    #[must_use]
     pub fn new() -> Self {
         FullCube {
             edge: EdgeCube::new(),
@@ -115,6 +123,7 @@ impl FullCube {
     }
 
     /// Construct from a 96-byte facelet array (values 0..5 = URFDLB).
+    #[must_use]
     pub fn from_facelets(f: &[u8; 96]) -> Self {
         let mut fc = FullCube::new();
 
@@ -163,7 +172,7 @@ impl FullCube {
     }
 
     /// Construct from a random state.
-    pub fn random<R: Rng>(rng: &mut R) -> Self {
+    pub fn random(rng: &mut JavaRandom) -> Self {
         FullCube {
             edge: EdgeCube::new_random(rng),
             center: CenterCube::new_random(rng),
@@ -183,6 +192,7 @@ impl FullCube {
     }
 
     /// Construct from a move sequence.
+    #[must_use]
     pub fn from_moves(moveseq: &[usize]) -> Self {
         let mut fc = FullCube::new();
         for &m in moveseq {
@@ -208,6 +218,7 @@ impl FullCube {
         self.corner_avail = c.corner_avail;
     }
 
+    #[must_use]
     pub fn clone_cube(&self) -> Self {
         let mut c = FullCube::new();
         c.copy_from(self);
@@ -387,6 +398,7 @@ impl Ord for FullCube {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::moves::MOVE2STR;
 
     /// The solved 4x4 facelet string: 16 U's, 16 R's, 16 F's, 16 D's, 16 L's, 16 B's.
     fn solved_facelets() -> [u8; 96] {
@@ -408,7 +420,7 @@ mod tests {
 
     #[test]
     fn test_random_cube_creates_valid_state() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         let mut fc = FullCube::random(&mut rng);
         // The edge permutation should contain all 24 distinct values.
         let edge = fc.get_edge();
@@ -435,9 +447,9 @@ mod tests {
 
     #[test]
     fn scrambled_facelet_roundtrip() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         for _ in 0..100 {
-            let moves: Vec<usize> = (0..40).map(|_| rng.random_range(0..36)).collect();
+            let moves: Vec<usize> = (0..40).map(|_| rng.next_index(36)).collect();
             let mut fc = FullCube::from_moves(&moves);
             let mut f = [0u8; 96];
             fc.to_facelet(&mut f);

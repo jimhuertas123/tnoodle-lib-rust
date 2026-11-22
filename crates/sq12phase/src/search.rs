@@ -621,8 +621,7 @@ impl Search {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::SeedableRng;
-    use rand::rngs::StdRng;
+    use tnoodle_random::JavaRandom;
 
     /// Apply a WCA-notation Square-1 algorithm like `(1,0) / (-3,2) /`.
     /// Returns the cube and its length in the WCA metric.
@@ -670,7 +669,7 @@ mod tests {
 
     #[test]
     fn optimal_solutions_are_valid_and_short() {
-        let mut rng = StdRng::seed_from_u64(7);
+        let mut rng = JavaRandom::from_seed(b"7");
         let mut search = Search::new();
         for _ in 0..20 {
             let scramble = search
@@ -690,7 +689,7 @@ mod tests {
 
     #[test]
     fn random_states_are_rarely_within_ten_moves() {
-        let mut rng = StdRng::seed_from_u64(11);
+        let mut rng = JavaRandom::from_seed(b"11");
         let mut search = Search::new();
         for _ in 0..20 {
             assert!(
@@ -707,24 +706,21 @@ mod tests {
         let mut search = Search::new();
         let sol = search.solution(&c);
         // A solved cube should produce an empty or very short solution
-        match sol {
-            Some(s) => {
-                assert!(
-                    s.is_empty() || s.trim().is_empty(),
-                    "solved cube should produce empty solution, got: {s:?}"
-                );
-            }
-            None => {
-                // Also acceptable — some implementations return None for
-                // already-solved cubes. But our port returns Some("").
-                // Either way, not finding a solution is valid.
-            }
+        if let Some(s) = sol {
+            assert!(
+                s.is_empty() || s.trim().is_empty(),
+                "solved cube should produce empty solution, got: {s:?}"
+            );
+        } else {
+            // Also acceptable — some implementations return None for
+            // already-solved cubes. But our port returns Some("").
+            // Either way, not finding a solution is valid.
         }
     }
 
     #[test]
     fn random_cube_produces_solution() {
-        let mut rng = StdRng::seed_from_u64(42);
+        let mut rng = JavaRandom::from_seed(b"42");
         let mut search = Search::new();
 
         for _ in 0..5 {
@@ -748,7 +744,7 @@ mod tests {
     #[test]
     fn solution_solves_cube() {
         // Apply the solution to the cube and verify it reaches solved state.
-        let mut rng = StdRng::seed_from_u64(77);
+        let mut rng = JavaRandom::from_seed(b"77");
         let mut search = Search::new();
 
         for _ in 0..3 {
@@ -771,7 +767,7 @@ mod tests {
     fn inverse_solution_scrambles() {
         // The inverse-mode solution, applied to a solved cube, should produce
         // a state that, when solved by the normal solver, yields a solution.
-        let mut rng = StdRng::seed_from_u64(55);
+        let mut rng = JavaRandom::from_seed(b"55");
         let mut search = Search::new();
 
         let c = FullCube::random_cube(&mut rng);

@@ -1,13 +1,13 @@
 [package]
 name = "tnoodle-solvers"
-version = "0.1.0"
+version = "0.20.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Small puzzle solvers: 2x2, Pyraminx, Skewb"
 
 [dependencies]
-rand = { workspace = true }
+tnoodle-random = { path = "../random" }
 
 [lints]
 workspace = true

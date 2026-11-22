@@ -9,8 +9,8 @@
 //! IDA* search with pruning on perm and twist coordinates.
 //! Output in FCN (Fixed Corner Notation): L, R, B, U.
 
-use rand::Rng;
 use std::sync::LazyLock;
+use tnoodle_random::JavaRandom;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -55,6 +55,7 @@ impl State {
     pub const SOLVED: State = State { perm: 0, twist: 0 };
 
     /// Whether the perm and twist are consistent (solvable).
+    #[must_use]
     pub fn is_solvable(&self) -> bool {
         ORI[self.perm % 12] == (self.twist + self.twist / 3 + self.twist / 9 + self.twist / 27) % 3
     }
@@ -67,7 +68,7 @@ impl State {
 fn get_perm_mv(idx: usize, mv: usize) -> usize {
     let mut center_index = (idx / 12) as i32;
     let corner_index = idx % 12;
-    let mut val: i64 = 0x543210;
+    let mut val: i64 = 0x0054_3210;
     let mut parity: i32 = 0;
     let mut center_perm = [0i32; 6];
 
@@ -118,13 +119,13 @@ fn get_perm_mv(idx: usize, mv: usize) -> usize {
     }
 
     // Pack center perm back
-    val = 0x543210;
+    val = 0x0054_3210;
     center_index = 0;
     for i in 0..4 {
         let v = (center_perm[i] as i64) << 2;
         center_index *= (6 - i) as i32;
         center_index += ((val >> v) & 0xf) as i32;
-        val -= 0x111110i64 << v;
+        val -= 0x0011_1110_i64 << v;
     }
 
     (center_index as usize) * 12 + CORNER_PERM_MV[corner_index][mv]
@@ -273,7 +274,7 @@ fn ida_search(
     max_left: usize,
     last_move: isize,
     sol: &mut [usize; MAX_LENGTH],
-    rng: &mut impl Rng,
+    rng: &mut JavaRandom,
 ) -> isize {
     if max_left == 0 {
         return if perm == 0 && twist == 0 {
@@ -287,7 +288,7 @@ fn ida_search(
         return -1;
     }
 
-    let offset: usize = rng.random_range(0..N_MOVES);
+    let offset: usize = rng.next_index(N_MOVES);
     for m in 0..N_MOVES {
         let mv = (m + offset) % N_MOVES;
         if mv as isize == last_move {
@@ -343,11 +344,18 @@ fn get_solution_string(sol: &[usize], solution_length: usize) -> String {
 // Public API
 // ---------------------------------------------------------------------------
 
+/// The generator that orders the solver's moves. Java uses an unseeded
+/// `new Random()` here; deriving it from the state keeps a seeded scramble
+/// reproducible without drawing from the caller's stream (AD-017).
+fn move_order(state: &State) -> JavaRandom {
+    JavaRandom::from_seed(format!("skewb {} {}", state.perm, state.twist).as_bytes())
+}
+
 /// Generate a random solvable Skewb state.
-pub fn random_state(rng: &mut impl Rng) -> State {
-    let perm = rng.random_range(0..N_PERM);
+pub fn random_state(rng: &mut JavaRandom) -> State {
+    let perm = rng.next_index(N_PERM);
     loop {
-        let twist = rng.random_range(0..N_TWIST);
+        let twist = rng.next_index(N_TWIST);
         let s = State { perm, twist };
         if s.is_solvable() {
             return s;
@@ -357,9 +365,10 @@ pub fn random_state(rng: &mut impl Rng) -> State {
 
 /// Solve the given state in at most `max_depth` moves.
 /// Returns `Some("")` for the solved state, `None` if no solution within depth.
+#[must_use]
 pub fn solve(state: State, max_depth: usize) -> Option<String> {
     let tables = &*TABLES;
-    let mut rng = rand::rng();
+    let mut rng = move_order(&state);
     let mut sol = [0usize; MAX_LENGTH];
     let max_depth = max_depth.min(MAX_LENGTH);
 
@@ -387,9 +396,10 @@ pub fn solve(state: State, max_depth: usize) -> Option<String> {
 
 /// Generate a scramble (inverse of a solution) of exactly `length` moves.
 /// Returns `None` if no solution of exactly that length exists.
+#[must_use]
 pub fn generate_exactly(state: State, length: usize) -> Option<String> {
     let tables = &*TABLES;
-    let mut rng = rand::rng();
+    let mut rng = move_order(&state);
     let mut sol = [0usize; MAX_LENGTH];
     let length = length.min(MAX_LENGTH);
 
@@ -436,22 +446,22 @@ mod tests {
 
     #[test]
     fn random_state_is_valid() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         for _ in 0..100 {
             let s = random_state(&mut rng);
             assert!(s.perm < N_PERM);
             assert!(s.twist < N_TWIST);
-            assert!(s.is_solvable(), "state {:?} must be solvable", s);
+            assert!(s.is_solvable(), "state {s:?} must be solvable");
         }
     }
 
     #[test]
     fn random_state_is_solvable() {
-        let mut rng = rand::rng();
+        let mut rng = JavaRandom::from_entropy();
         for _ in 0..20 {
             let s = random_state(&mut rng);
             let sol = solve(s, MAX_LENGTH);
-            assert!(sol.is_some(), "state {:?} should be solvable", s);
+            assert!(sol.is_some(), "state {s:?} should be solvable");
         }
     }
 }

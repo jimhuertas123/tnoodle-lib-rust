@@ -1,13 +1,13 @@
 [package]
 name = "tnoodle-sq12phase"
-version = "0.1.0"
+version = "0.20.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Two-phase algorithm for Square-1 scramble generation"
 
 [dependencies]
-rand = { workspace = true }
+tnoodle-random = { path = "../random" }
 
 [lints]
 workspace = true
