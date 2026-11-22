@@ -133,7 +133,8 @@ Proof: run dbg | test result: ok
 
 ## Handoff
 
-- **Settled mid-build:** none
+- **Settled mid-build:** user: "nono if you have slow tests then run them, take your time just be transparent if they will take long say it" - run slow proofs during the build and give a time estimate first
 - **Dispatched:** none
-- **Boundary:** none closed
+- **Boundary:** S1 (C1-C4) closed at `d712712`; S2 (C5-C8) at `68633c7`; S3 C9-C13, C15, C16 at `cc9b839` - C14 and C17 wait for S4's `ScrambleOptions`. Workspace formatted once at `1e54ac0` so `cargo fmt --check` can gate.
+- **Found mid-build:** the old port built min2phase as Java with `USE_TWIST_FLIP_PRUN`, `USE_COMBP_PRUN` and `USE_CONJ_PRUN` off; tnoodle has them on. `CoordCube` was re-ported with Java's packed table flags, and `Perm2CombP` was missing the `parity * 70` term; the cross-check now hashes all 20 min2phase tables against Java.
 - **Abandoned:** none
