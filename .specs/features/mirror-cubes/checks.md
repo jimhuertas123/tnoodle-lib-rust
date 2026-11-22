@@ -6,7 +6,7 @@ Run dbg: `cargo test --workspace`
 Run xcheck: `tools/java-crosscheck/run.sh 1 1`
 Plan: `.specs/features/mirror-cubes/plan.md`
 
-25 checks in 4 slices · 6 one-way doors · 0 open, of which 0 block
+27 checks in 4 slices · 6 one-way doors · 0 open, of which 0 block
 
 ## Checks
 
@@ -98,6 +98,12 @@ Proof: run rel | tests::concurrent_seeded_scrambles_match_sequential ... ok
 **C25** - The debug build passes the same tests, with no overflow panics (AC 1, AD-004)
 Proof: run dbg | test result: ok
 
+**C26** - With `SearchBudget::Time { min: 0, max: 0 }`, `333`, `333ni` and `333fm` each return a scramble within 5 s, equal to the first-solution scramble for the same seed, and leave the generator where the first-solution run leaves it (Verifier finding: the generator looped forever)
+Proof: run rel | three_by_three::tests::exhausted_budget_returns_first_solution_without_extra_draws ... ok
+
+**C27** - `SearchWca::solution` with `SearchBudget::Time { max: 0, .. }` returns code 8 (AC 14; Verifier finding: no test held it)
+Proof: run rel | search::tests::exhausted_searches_return_java_codes ... ok
+
 ## Coverage
 
 | Set (size) | Member -> proof | Unproven |
@@ -116,13 +122,13 @@ Proof: run dbg | test result: ok
 | seeds for scrambles (4) | `"a"` C18 · `"tnoodle"` C18 · `"2026-11-21 round 1"` C18 · `""` C18 | - |
 | all events, seeded repeat (16) | C21, table-driven over all 16 | - |
 | all events, unseeded judge (16) | C22, table-driven over all 16 | - |
-| budget modes (2) | Time C14 · Probes C14 | - |
+| budget modes (2) | Time C14 C26 C27 · Probes C14 | - |
 | Landing doors (6) | randomness API C18 C21 · JavaRandom C5 C6 · sha1 C5 · min2phase API C9 C12 C13 · PARITY.md C4 · versions C23 | - |
 
 ## Swept
 
 - validation: C7, C12, C16
-- failure modes: C13, C2
+- failure modes: C13, C2, C26, C27
 - idempotency: C21
 - authorization: n/a - a library with no callers to tell apart; every function is public by design
 - concurrency: C24
@@ -134,7 +140,7 @@ Proof: run dbg | test result: ok
 ## Handoff
 
 - **Settled mid-build:** user: "nono if you have slow tests then run them, take your time just be transparent if they will take long say it" - run slow proofs during the build and give a time estimate first
-- **Dispatched:** none
+- **Dispatched:** Verifier (fresh sub-agent) at `70f972c`, diff `main..70f972c`, 2026-11-21
 - **Boundary:** S1 (C1-C4) closed at `d712712`; S2 (C5-C8) at `68633c7`; S3 (C9-C17) at `cc9b839` with C14/C17 tests landing in S4; S4 (C18-C25) at `f4f2734`. Workspace formatted once at `1e54ac0` so `cargo fmt --check` can gate; Java length-table sample capped at `12affb8`.
 - **Found mid-build:** the old port built min2phase as Java with `USE_TWIST_FLIP_PRUN`, `USE_COMBP_PRUN` and `USE_CONJ_PRUN` off; tnoodle has them on. `CoordCube` was re-ported with Java's packed table flags, and `Perm2CombP` was missing the `parity * 70` term; the cross-check now hashes all 20 min2phase tables against Java.
 - **Abandoned:** drawing Skewb/Pyraminx move order from the seeded stream (AD-015) - it shifts every later seeded state away from Java's; replaced by a state-derived generator (AD-017).

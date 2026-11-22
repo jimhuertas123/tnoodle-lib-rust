@@ -34,8 +34,11 @@ intentional difference.
   chosen like `Puzzle.choose` over the successors in Java's order. `puzzle::choose_from_keys` is
   removed; use `puzzle::choose` (`Puzzle.choose`).
 - `ScrambleCacher::new` takes a closure over `&mut JavaRandom` (`ScrambleCacher`).
-- Every `puzzles::*::generate_scramble*` function takes `&mut JavaRandom`; the 3x3 ones also take
-  a `SearchBudget` (`ThreeByThreeCubePuzzle.generateRandomMoves`).
+- Every `puzzles::*::generate_scramble*` function takes `&mut JavaRandom`, among them
+  `generate_scramble_ni`, `generate_scramble_fm` and `generate_scramble_555ni`; the 3x3 ones also
+  take a `SearchBudget` (`ThreeByThreeCubePuzzle.generateRandomMoves`). When the budget's maximum
+  runs out before any solution, they return the state's first solution instead of failing
+  (`ThreeByThreeCubePuzzle` throws; see `PARITY.md`).
 - `tnoodle_min2phase::search::Search::solution` returns `Result<String, SearchError>` with Java's
   text and takes `Verbose` (`Search.solution`). `SearchResult` and
   `Search::solution_with_restrictions` are removed; use `SearchWca::solution`
@@ -47,12 +50,13 @@ intentional difference.
   `USE_COMBP_PRUN` and `USE_CONJ_PRUN` on): `N_COMB` is 140, `CoordTables` gains
   `twist_flip_prun`, `CoordCube::set_with_prun` takes `&mut self` and returns `bool`, and
   `CoordCube` gains `calc_pruning` and `do_move_prun_conj` (`CoordCube`).
-- `tnoodle_min2phase::phase2` is removed: phase 2 uses Java's symmetry-reduced tables.
+- `tnoodle_min2phase::phase2` (`Phase2Tables`, `PHASE2_TABLES`) is removed: phase 2 uses Java's
+  symmetry-reduced tables (`CoordCube`).
 - `tnoodle_threephase::search::Search::random_state`, `tools::random_cube` and the piece
-  constructors take `&mut JavaRandom` (`Search.randomState(Random)`); the phase-1 candidate queue
+  constructors (`new_random`) take `&mut JavaRandom` (`Search.randomState(Random)`); the phase-1 candidate queue
   and the `Center1` symmetry choice follow Java's `PriorityQueue` and `getsym`.
 - `tnoodle_sq12phase::full_cube::FullCube::random_cube` takes `&mut JavaRandom`
   (`FullCube.randomCube(Random)`).
 - `tnoodle_solvers::{two_by_two, skewb, pyraminx}::random_state` take `&mut JavaRandom`
   (`TwoByTwoSolver`, `SkewbSolver`, `PyraminxSolver` `randomState(Random)`).
-- Every crate is versioned `0.20.0`, after the tnoodle-lib release it mirrors.
+- Every crate is versioned `0.20.0`, after the tnoodle-lib release it mirrors (tnoodle-lib `v0.20.0`).

@@ -14,6 +14,11 @@ use crate::puzzle::{Puzzle, PuzzleStateAndGenerator, solve_in};
 /// Java's `THREE_BY_THREE_MAX_SCRAMBLE_LENGTH`.
 const MAX_SCRAMBLE_LENGTH: i32 = 21;
 const FM_PADDING: &str = "R' U' F";
+/// Stops at the first solution, whatever it takes.
+const FIRST_SOLUTION: SearchBudget = SearchBudget::Probes {
+    min: 0,
+    max: u64::MAX,
+};
 
 /// Random-state scramble whose underlying solution may not start on
 /// `first_axis` nor end on `last_axis` (so the scramble may not end on
@@ -26,20 +31,23 @@ fn generate_random_moves(
     last_axis: Option<&str>,
 ) -> PuzzleStateAndGenerator<CubeState> {
     let mut search = SearchWca::new();
-    let scramble = loop {
-        let facelets = tools::random_cube(rng);
-        let result = search.solution(
+    let facelets = tools::random_cube(rng);
+    let solve = |search: &mut SearchWca, budget| {
+        search.solution(
             &facelets,
             MAX_SCRAMBLE_LENGTH,
             budget,
             Verbose::INVERSE_SOLUTION,
             first_axis,
             last_axis,
-        );
-        if let Ok(scramble) = result {
-            break scramble;
-        }
+        )
     };
+    // Java throws when the budget's maximum runs out before any solution
+    // (PARITY.md); every valid state has one within 21 moves, so searching the
+    // same state to its first solution always succeeds and draws nothing more.
+    let scramble = solve(&mut search, budget)
+        .or_else(|_| solve(&mut search, FIRST_SOLUTION))
+        .expect("every 3x3 state has a solution within 21 moves");
     // Same as Java: canonicalize the trimmed solver output so it can never
     // contain redundant moves.
     let mut ab = AlgorithmBuilder::new(MergingMode::CanonicalizeMoves, CubeState::solved(3));
@@ -63,6 +71,11 @@ fn wca_scramble(
 }
 
 /// Generate a WCA-standard 3x3x3 scramble (random state, max 21 moves).
+///
+/// # Panics
+///
+/// Never: when `budget` runs out before any solution, the state is searched to
+/// its first solution instead of failing as Java does.
 pub fn generate_scramble(rng: &mut JavaRandom, budget: SearchBudget) -> String {
     wca_scramble(rng, |r| generate_random_moves(r, budget, None, None))
 }
@@ -154,6 +167,31 @@ mod tests {
                 None,
             );
             assert_eq!(by_probes, by_time, "{facelets}");
+        }
+    }
+
+    #[test]
+    fn exhausted_budget_returns_first_solution_without_extra_draws() {
+        type Generator = fn(&mut JavaRandom, SearchBudget) -> String;
+        let none = SearchBudget::Time {
+            min: Duration::ZERO,
+            max: Duration::ZERO,
+        };
+        let generators: [Generator; 3] = [
+            generate_scramble,
+            generate_scramble_ni,
+            generate_scramble_fm,
+        ];
+        for generate in generators {
+            let mut exhausted = JavaRandom::from_seed(b"no budget");
+            let mut first = JavaRandom::from_seed(b"no budget");
+            for _ in 0..5 {
+                let start = Instant::now();
+                let scramble = generate(&mut exhausted, none);
+                assert!(start.elapsed() < Duration::from_secs(5), "{scramble}");
+                assert_eq!(scramble, generate(&mut first, FIRST_SOLUTION));
+            }
+            assert_eq!(exhausted.next_long(), first.next_long());
         }
     }
 

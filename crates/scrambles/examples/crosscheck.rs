@@ -301,6 +301,17 @@ fn print_min2phase_cases(scale: usize) {
         }
         println!("m2p-next\t{facelets}\t{}", outs.join("|"));
     }
+    // Codes 2 and 4, which random sticker swaps reach only by chance: two
+    // edges read twice (UF and DB stickers swapped) and a corner that does not
+    // exist (URF and ULB stickers swapped).
+    let solved = tools::from_scramble("").expect("empty scramble");
+    for (a, b) in [(7, 34), (9, 36)] {
+        let mut chars: Vec<char> = solved.chars().collect();
+        chars.swap(a, b);
+        let facelets: String = chars.into_iter().collect();
+        let out = shown(search.solution(&facelets, 21, 100_000, 0, Verbose::NONE));
+        println!("m2p-error\t{facelets}\t{out}");
+    }
     for i in 0..200 * scale {
         let mut chars: Vec<char> = tools::random_cube(&mut rng).chars().collect();
         // Swap two stickers, or drop one, to corrupt the cube in different ways.

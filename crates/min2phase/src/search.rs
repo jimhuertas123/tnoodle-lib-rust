@@ -1162,6 +1162,16 @@ mod tests {
         parity.swap(7, 5);
         parity.swap(19, 10);
         assert_eq!(solve(&parity.iter().collect::<String>()), Err(6));
+        // Two edges twice: the U sticker of UF swapped with the D sticker of DB
+        // (U8 = 7, D8 = 34) makes UF read DF and DB read UB.
+        let mut edges: Vec<char> = solved.chars().collect();
+        edges.swap(7, 34);
+        assert_eq!(solve(&edges.iter().collect::<String>()), Err(2));
+        // No such corner: the R sticker of URF swapped with the L sticker of
+        // ULB (R1 = 9, L1 = 36) leaves both reading a corner that does not exist.
+        let mut corners: Vec<char> = solved.chars().collect();
+        corners.swap(9, 36);
+        assert_eq!(solve(&corners.iter().collect::<String>()), Err(4));
     }
 
     #[test]
@@ -1181,6 +1191,15 @@ mod tests {
             Err(8)
         );
         let mut wca = SearchWca::new();
+        let no_time = SearchBudget::Time {
+            min: Duration::ZERO,
+            max: Duration::ZERO,
+        };
+        assert_eq!(
+            wca.solution(&facelets, 21, no_time, Verbose::NONE, None, None)
+                .map_err(SearchError::code),
+            Err(8)
+        );
         let budget = SearchBudget::Probes { min: 0, max: 1000 };
         assert_eq!(
             wca.solution(&facelets, 21, budget, Verbose::NONE, Some("X"), None)
